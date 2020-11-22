@@ -4,13 +4,10 @@ A simple Discord bot that gathers information from a particular Google spreadshe
 # Import
 Download the files and ```npm install``` it.
 
-Go to the official Google Sheets API guide and click the blue button to be able to create a new project and authomatically enable the Google Sheets API.
-Also, save the file (download) ```credentials.json```. 
+Go to the official Google Sheets API guide and click the blue button to be able to create a new project (choose desktop app) and authomatically enable the Google Sheets API.
 https://developers.google.com/sheets/api/quickstart/nodejs
 
- - Extract ```client_secret```, ```client_id```, ```redirect_uris``` data from the file and import them to our ```.env``` file,
-
-like this: ```CLIENT_SECRET = 1K4JkfpmylGGDXbWZZ4oyIWq```
+ - Save the ```client_id``` and ```client_secret``` and paste them into our ```.env``` file, like this: ```CLIENT_SECRET = 1K4JkfpmylGGDXbWZZ4oyIWq```
 
  - Get your Discord bot token here: https://discord.com/developers/applications/YOUR_BOT/bot and import it to the ```.env``` file
 
@@ -26,6 +23,9 @@ like this: ```CLIENT_SECRET = 1K4JkfpmylGGDXbWZZ4oyIWq```
  # Usage
  
  ```npm start``` to start the application (our bot).
+ 
+ - A link will be provided to the console. Follow it in order to get a code that allows our bot to use the Google API and get access to spreadsheets. Paste it back to the      console to let it be stored to ```token.json``` file.
+ 
  - Get your ```client_id``` here: https://discord.com/developers/applications /YOUR_BOT/, go to https://discord.com/oauth2/authorize?client_id=CLIENT_ID&scope=bot
   and invite the bot to your servers
   

@@ -20,7 +20,8 @@ like this: ```CLIENT_SECRET = 1K4JkfpmylGGDXbWZZ4oyIWq```
    My application checks if worker presents in the cell and calculates their salary
  
  - With MongoDB (https://www.mongodb.com/) database, go to their site, sign up and create a cluster to be able to connect the database.
-   Click the button 'connect', choose application and import the URI string (Node.js) to our ```.env``` file
+   Click the button 'connect', choose application and import the URI string (Node.js) to our ```.env``` file,
+   like this: ```MONGO_DB = mongodb+srv://name:pass@cluster0.xxwun.azure.mongodb.net/database_name?retryWrites=true&w=majority```
  
  # Usage
  

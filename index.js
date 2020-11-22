@@ -3,8 +3,8 @@ const fs = require('fs');
 const { google } = require('googleapis');
 const readline = require('readline');
 const { MongoClient } = require('mongodb');
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 
+const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 const TOKEN_PATH = 'token.json';
 
 require('dotenv').config();
@@ -13,13 +13,13 @@ const bot = new Discord.Client();
 const oAuth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URIS[0]);
 let database;
 
-start();
-
 async function start() {
+    bot.login(process.env.DISCORD_BOT_TOKEN);
+
     bot.once('ready', () => {
         console.log(`${bot.user.username} ready`);
     });
-    
+
     setGoogleAuthToken();
 
     try {
@@ -44,7 +44,7 @@ function setGoogleAuthToken() {
             setGoogleAuthToken();
         }
         oAuth2Client.setCredentials(JSON.parse(token));
-    })
+    });
 }
 
 function getGoogleAuthToken(oAuth2Client) {
@@ -63,11 +63,19 @@ function getGoogleAuthToken(oAuth2Client) {
         if (err) return console.error('Error while trying to retrieve access token: ', err);
         oAuth2Client.setCredentials(token);
         fs.writeFile(TOKEN_PATH, JSON.stringify(token), (err) => {
-          if (err) return console.error(err);
+          if (err) return console.error(`Error while trying to write access token to the file ${TOKEN_PATH}: ${err}`);
           console.log('Token stored to: ', TOKEN_PATH);
         });
       });
     });
+}
+
+function botSendToChannel(message, response) {
+    return bot.channels.cache.get(message.channel.id).send(response);
+}
+
+function botSendToAuthor(message, response) {
+    return message.author.send(response);
 }
 
 function calculateSalary(message, auth) {
@@ -77,12 +85,11 @@ function calculateSalary(message, auth) {
     
     sheets.spreadsheets.values.get({
         spreadsheetId: process.env.GOOGLE_SPREADSHEET,
-        range: process.env.GOOGLE_SPREADSHEET_RANGE,
-        majorDimension: process.env.GOOGLE_SPREADSHEET_DIMENSION
-    }, async (err, res) => {
+        range: process.env.GOOGLE_SPREADSHEET_RANGE
+    }, (err, res) => {
         if (err) {
-            let msg = 'Something went wrong. An error occurred!';
-            message.guild ? botSendToChannel(message, msg) : botSendToAuthor(message, msg);
+            let response = 'Something went wrong. An error occurred!';
+            message.guild ? botSendToChannel(message, response) : botSendToAuthor(message, response);
             return console.log(`THE GOOGLE SHEETS API RETURNED: ${err}`);
         }
 
@@ -93,36 +100,19 @@ function calculateSalary(message, auth) {
                     var boosters = row[0].split(' ');
                     for (var i = 0; i < 4; i++) {
                         if (boosters[i] && boosters[i].toUpperCase() === booster.toUpperCase()) {
-                            if (row[4]) salary += parseInt(row[4]);
+                            if (row[4]) salary += parseFloat(row[4]);
                         }
                     }
                 }
             });
-            sendSalary(message, salary);
+            let response = `${booster.toUpperCase()}'s salary is ${salary}`;
+            message.guild ? botSendToChannel(message, response) : botSendToAuthor(message, response);
         } else {
-            let msg = 'Something went wrong. An error occurred!';
-            message.guild ? botSendToChannel(message, msg) : botSendToAuthor(message, msg);
+            let response = 'Something went wrong. An error occurred!';
+            message.guild ? botSendToChannel(message, response) : botSendToAuthor(message, response);
             return console.log('NO DATA FOUND IN THE GOOGLE SHEET');
         }
     });
-    
-}
-
-function sendSalary(message, salary) {
-    var booster = message.content.split(' ')[1];
-    let response = `${booster.toUpperCase()}'s salary: ${salary}`;
-
-    if (!message.guild) {
-        message.author.send(response);
-    } else bot.channels.cache.get(message.channel.id).send(response);
-}
-
-function botSendToChannel(message, msg) {
-    return bot.channels.cache.get(message.channel.id).send(msg);
-}
-
-function botSendToAuthor(message, msg) {
-    return message.author.send(msg);
 }
 
 bot.on('message', async (message) => {
@@ -141,8 +131,8 @@ bot.on('message', async (message) => {
             let booster = content.split(' ')[1];
             if (booster && booster != '') {
                 if (await database.collection('boosters').findOne({ name: booster.toUpperCase() })) {
-                    let msg = `This booster (${booster.toUpperCase()}) already exists in the database`;
-                    return message.guild ? botSendToChannel(message, msg) : botSendToAuthor(message, msg);
+                    let response = `This booster (${booster.toUpperCase()}) already exists in the database`;
+                    return message.guild ? botSendToChannel(message, response) : botSendToAuthor(message, response);
                 }
                 let newBooster = {
                     name: `${booster.toUpperCase()}`,
@@ -154,8 +144,8 @@ bot.on('message', async (message) => {
             let channel = message.content.split(' ')[1];
             if (channel && channel != '') {
                 if (await database.collection('channels').findOne({ id: channel_id })) {
-                    let msg = `This channel (${channel}) already exists in the database`;
-                    return message.guild ? botSendToChannel(message, msg) : botSendToAuthor(message, msg);
+                    let response = `This channel (${channel}) already exists in the database`;
+                    return message.guild ? botSendToChannel(message, response) : botSendToAuthor(message, response);
                 }
                 let newChannel = {
                     id: `${channel_id}`,
@@ -171,16 +161,17 @@ bot.on('message', async (message) => {
                 if (await database.collection('boosters').findOne({ name: booster.toUpperCase() })) {
                     calculateSalary(message, oAuth2Client);
                 } else {
-                    let msg = `Booster (${booster}) not found. If you want to check, add them by writing !booster nickname`;
-                    return message.guild ? botSendToChannel(message, msg) : botSendToAuthor(message, msg);
+                    let response = `Booster (${booster}) not found. If you want to check, add them by writing !booster nickname`;
+                    return message.guild ? botSendToChannel(message, response) : botSendToAuthor(message, response);
                 }
             }
         }
     } catch (err) {
-        let msg = 'Something went wrong. An error occurred!';
-        message.guild ? botSendToChannel(message, msg) : botSendToAuthor(message, msg);
+        let response = 'Something went wrong. An error occurred!';
+        console.log(`${response} ${message.content}`);
+        message.guild ? botSendToChannel(message, response) : botSendToAuthor(message, response);
         return console.log(`An error thrown while processing the message: ${err}`);
     }
 });
 
-bot.login(process.env.DISCORD_BOT_TOKEN);
+start();

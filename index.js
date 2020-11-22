@@ -4,13 +4,14 @@ const { google } = require('googleapis');
 const readline = require('readline');
 const { MongoClient } = require('mongodb');
 
+const REDIRECT_URIS = ["urn:ietf:wg:oauth:2.0:oob","http://localhost"];
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 const TOKEN_PATH = 'token.json';
 
 require('dotenv').config();
 
 const bot = new Discord.Client();
-const oAuth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, process.env.REDIRECT_URIS[0]);
+const oAuth2Client = new google.auth.OAuth2(process.env.CLIENT_ID, process.env.CLIENT_SECRET, REDIRECT_URIS[0]);
 let database;
 
 async function start() {
@@ -20,7 +21,7 @@ async function start() {
         console.log(`${bot.user.username} ready`);
     });
 
-    setGoogleAuthToken();
+    setGoogleAuthToken(setGoogleAuthToken);
 
     try {
         const client = await MongoClient.connect(
@@ -37,17 +38,14 @@ async function start() {
     }
 }
 
-function setGoogleAuthToken() {
+function setGoogleAuthToken(callback) {
     fs.readFile(TOKEN_PATH, (err, token) => {
-        if (err) {
-            getGoogleAuthToken(oAuth2Client);
-            setGoogleAuthToken();
-        }
+        if (err) getGoogleAuthToken(oAuth2Client, callback);
         oAuth2Client.setCredentials(JSON.parse(token));
     });
 }
 
-function getGoogleAuthToken(oAuth2Client) {
+function getGoogleAuthToken(oAuth2Client, callback) {
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,

@@ -10,10 +10,16 @@
   "author": "Overkill",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^12.4.1",
-    "dotenv": "^8.2.0",
-    "googleapis": "^39.2.0",
-    "mongodb": "^3.6.3",
-    "nodemon": "^2.0.6"
+    "config": "^3.3.6",
+    "discord.js": "^12.5.3",
+    "dotenv": "^8.6.0",
+    "mongodb": "^3.7.1",
+    "mongoose": "^5.13.9",
+    "node-cron": "^3.0.0",
+    "node-fetch": "^2.6.5",
+    "nodemon": "^2.0.13"
+  },
+  "devDependencies": {
+    "@babel/helper-compilation-targets": "^7.15.4"
   }
 }

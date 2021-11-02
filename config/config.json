@@ -1,0 +1,12 @@
+{
+    "DISCORD_BOT_TOKEN": "NzA2OTQ3MjQyNTgxMjk1MTA1.XrBp7Q.0mJFFymuEyty9Egmolo2HlaCknk",
+    "MONGO_URI": "mongodb+srv://Overkill:3iMt68b9somof89V@cluster0.rrdmu.mongodb.net/gql-app-db?retryWrites=true&w=majority",
+    "BLIZZARD_ACCESS_TOKEN": "USo1KVpa7nHvVBDLwoN2vvpG3bf3Yql9x9",
+    "DISCORD_USERS": {
+        "OVER": "167505057477033984"
+    },
+    "DISCORD_CHANNELS": {
+        "CLOCKTEAM": "672667309906853899",
+        "BOT": "896363996029005854"
+    }
+}

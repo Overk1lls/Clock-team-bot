@@ -8,13 +8,17 @@ require('dotenv').config();
 discordBot.login(process.env.DISCORD_BOT_TOKEN);
 discordBot.once('ready', () => console.log(new Date().getSeconds(), discordBot.user.username, 'ready'));
 
-let taskMap = [];
+const taskMap = [];
+const serverListeners = new Set();
 
-const setCheckServerTask = (index, time, status, response, to) => {
+const setCheckServerTask = (index, time, status) => {
     taskMap[index] = setInterval(() => {
         if (status === 'UP') {
-            utils.DiscordBotReplyToUser(discordBot, response, to);
-            if (taskMap[index]) clearInterval(taskMap[index]);
+            if (serverListeners.size > 0) {
+                serverListeners.forEach(listener => utils.DiscordBotReplyToUser(discordBot, 'Server status is UP', listener));
+            }
+            serverListeners.clear();
+            if (taskMap[index]) taskMap[index] = undefined;
         }
     }, time);
 };
@@ -48,12 +52,14 @@ discordBot.on('message', async message => {
                 let splittedMsg = content.split(' ');
 
                 if (splittedMsg[0] === '!check') {
-                    let username = splittedMsg[1].split('-')[0];
-                    let server = splittedMsg[1].split('-')[1];
+                    let username = splittedMsg[1].split('-')[0].toUpperCase();
+                    let server = splittedMsg[1].split('-')[1].toUpperCase();
                     let allKeysFlag = splittedMsg.includes('all');
                     let region = splittedMsg.includes('eu');
 
                     let character = await checkCharacter(username, server, region ? 'eu' : 'us');
+                    if (character.error) console.log('Error fetching RIO: ' + character.message);
+
                     let recentKeys = character.mythic_plus_recent_runs;
 
                     let runs = allKeysFlag ? recentKeys : recentKeys.filter(key => key.mythic_level >= 20);
@@ -81,14 +87,15 @@ discordBot.on('message', async message => {
                         if (!subscribe) {
                             utils.DiscordBotReplyToUser(discordBot, server.realms[0].slug.toUpperCase() + ' status is ' + server.status.type, message.author.id);
                         } else {
-                            utils.DiscordBotReplyToUser(discordBot, 'Started to check the server every minute, will ping you if server is up.', message.author.id);
-                            setCheckServerTask(0, 6000, server.status.type, server.realms[0].slug.toUpperCase() + ' status is ' + server.status.type, message.author.id);
-                        }
+                            serverListeners.add(message.author.id);
 
-                        if (server.status.type === 'UP' && taskMap[0]) {
-                            utils.DiscordBotReplyToUser(discordBot, realm.toUpperCase() + ' is up...', message.author.id);
-                            clearInterval(taskMap[0]);
-                        };
+                            if (!taskMap[0]) {
+                                setCheckServerTask(0, 60000, server.status.type);
+                                utils.DiscordBotReplyToUser(discordBot, 'Started to check the server every minute, will ping you if server is up.', message.author.id);
+                            } else if (serverListeners.has(message.author.id)) {
+                                utils.DiscordBotReplyToUser(discordBot, "You've already subscribed!", message.author.id);
+                            }
+                        }
                     }
                 }
             } catch (e) {

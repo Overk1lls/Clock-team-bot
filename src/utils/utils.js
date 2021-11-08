@@ -5,8 +5,14 @@ function DiscordBotReplyToChannel(discordBot, message, channel) {
 }
 
 function DiscordBotReplyToUser(discordBot, message, user) {
-    console.log('Answered to user ' + discordBot.users.cache.get(user).username + ': ' + message);
-    discordBot.users.cache.get(user.toString()).send(message);
+    try {
+        let date = new Date();
+        console.log(date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds(), 'Answered to user ' + discordBot.users.cache.get(user).username + ': ' + message);
+        discordBot.users.cache.get(user).send(message);
+    }
+    catch (e) {
+        console.error(e);
+    }
 }
 
 const checkServer = async (region, server) => {

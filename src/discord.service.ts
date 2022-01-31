@@ -1,5 +1,5 @@
-import { Client, TextChannel, User } from "discord.js";
-import { discordBotTagChannels, commands, responses } from './lib/config';
+import { Client, DMChannel, NewsChannel, TextChannel, User } from "discord.js";
+import { commands, responses } from './lib/config';
 import FetchBlizzardService from "./fetchBlizzard.service";
 import TaskService from './task.service';
 import { consoleLog } from "./lib/utils";
@@ -10,18 +10,20 @@ export default class DiscordService {
     private _fetchBlizzardService: FetchBlizzardService;
     private _subscribeListeners: User[];
     private _taskService: TaskService;
+    private _tagChannels: string[];
 
-    constructor(discordClient: Client, token: string, blizzardToken: string) {
+    constructor(discordClient: Client, token: string, blizzardToken: string, tagChannels: string[]) {
         this._discordClient = discordClient;
         this._token = token;
         this._fetchBlizzardService = new FetchBlizzardService(blizzardToken);
+        this._tagChannels = tagChannels;
         this.messageHandler();
     }
 
-    start = () => {
-        this._discordClient
+    start = async () => {
+        await this._discordClient
             .login(this._token)
-            .then(() => {
+            .then(async () => {
                 consoleLog(this._discordClient.user.username + ' is ready');
             });
     };
@@ -30,11 +32,12 @@ export default class DiscordService {
         this._discordClient.on('message', async msg => {
             if (msg.author.bot) return;
 
+            const channel = msg.channel;
+
             // if message written in a channel
             if (msg.channel.type === 'text' &&
-                discordBotTagChannels.includes(msg.channel.id)
+                this._tagChannels.includes(channel.id)
             ) {
-                const channel = msg.channel;
 
                 if (msg.mentions.users.size != 0) {
                     msg.mentions.users.map(user => {
@@ -49,22 +52,14 @@ export default class DiscordService {
             } else if (msg.channel.type === 'dm') {
                 // if DM to the bot
                 const { content, author } = msg;
-                const currDate = new Date();
 
-                console.log(
-                    currDate.getHours() + ':' +
-                    currDate.getMinutes() + ':' +
-                    currDate.getSeconds(),
-                    'Received a DM from ' +
-                    author.username + ': ' +
-                    content
-                );
+                consoleLog('Received a DM from ' + author.username + ': ' + content);
 
                 // for commands, start with !
                 if (content.startsWith('!')) {
                     const splitMsg = content.split(' ');
                     const command = splitMsg[0];
-                    
+
                     if (Object.values(commands).includes(command)) {
                         if (command === commands.CHECK) {
                             const fullChar = splitMsg[1];
@@ -92,7 +87,9 @@ export default class DiscordService {
 
                                 let response: string[] = [];
                                 runs.map((run: any) => {
-                                    response.push(`${run.short_name}: ${run.mythic_level} (+${run.num_keystone_upgrades}) - ${new Date(run.completed_at).toUTCString()}, url: <${run.url}>`)
+                                    response.push(
+                                        `${run.short_name}: ${run.mythic_level} (+${run.num_keystone_upgrades}) - ${new Date(run.completed_at).toUTCString()}, url: <${run.url}>`
+                                    );
                                 });
 
                                 this.replyToUser(
@@ -106,6 +103,8 @@ export default class DiscordService {
                             const region = splitMsg.includes('eu') || splitMsg.includes('EU') ? 'eu' : 'us';
                             const indOfReg = splitMsg.indexOf(region);
                             if (indOfReg != -1) splitMsg.splice(indOfReg, 1);
+
+                            const currDate = new Date();
 
                             // if it's not the reset day or reset hours
                             if ((region == 'us' && currDate.getDay() != 2 && currDate.getHours() < 17) ||
@@ -168,6 +167,23 @@ export default class DiscordService {
                                     }
                                 }
                             }
+                        } else if (command === commands.TOKEN) {
+                            const filterRegion = splitMsg.filter(msg => msg.match(/(eu|us)/i));
+                            const region = filterRegion[0] ? filterRegion[0] : 'us';
+
+                            const token = await this._fetchBlizzardService.fetchGameToken(region);
+                            if (token.error) {
+                                this.replyToUser(
+                                    responses.SOMETHING_WRONG,
+                                    author
+                                );
+                            } else {
+                                const price: number = token.price;
+                                this.replyToUser(
+                                    `Token price is: ${price.toString().substring(0, 6)} gold`,
+                                    author
+                                );
+                            }
                         }
                     } else {
                         this.replyToUser(
@@ -180,7 +196,7 @@ export default class DiscordService {
         });
     };
 
-    replyToChannel = (message: string, channel: TextChannel) => {
+    replyToChannel = (message: string, channel: TextChannel | DMChannel | NewsChannel) => {
         const channelId = channel.id;
 
         const responseChannel = this._discordClient
@@ -188,7 +204,7 @@ export default class DiscordService {
             .cache
             .get(channelId);
 
-        (<TextChannel>responseChannel).send(message);
+        (<TextChannel | DMChannel | NewsChannel>responseChannel).send(message);
 
         consoleLog('ANSWERED: ' + message);
     };

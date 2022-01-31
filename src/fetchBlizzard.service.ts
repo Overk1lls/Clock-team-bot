@@ -4,6 +4,10 @@ export default class FetchBlizzardService {
     private _blizzardToken: string;
 
     constructor(blizzAuthToken: string) {
+        this.setup(blizzAuthToken);
+    }
+
+    setup = async (blizzAuthToken: string) => {
         const url = 'https://eu.battle.net/oauth/token';
         const method = 'POST';
         const body = 'grant_type=client_credentials';
@@ -12,7 +16,7 @@ export default class FetchBlizzardService {
             contentType: 'application/x-www-form-urlencoded'
         };
 
-        fetchAPI(
+        await fetchAPI(
             url,
             method,
             blizzAuthToken,
@@ -20,8 +24,8 @@ export default class FetchBlizzardService {
             headers.authorization,
             headers.contentType
         )
-            .then(token => this._blizzardToken = token.access_token);    
-    }
+            .then(token => this._blizzardToken = token.access_token);
+    };
 
     fetchRIO = (
         character: string,
@@ -46,6 +50,16 @@ export default class FetchBlizzardService {
         realm: string
     ) => {
         const url = `https://${region}.api.blizzard.com/data/wow/connected-realm/${realm}?namespace=dynamic-${region}`;
+        return fetchAPI(url, 'GET', this._blizzardToken);
+    };
+
+    fetchGameToken = (region: string) => {
+        const url = `https://${region}.api.blizzard.com/data/wow/token/index?&namespace=dynamic-${region}`;
+        return fetchAPI(url, 'GET', this._blizzardToken);
+    };
+
+    fetchItem = (region: string, id: number) => {
+        const url = `https://${region}.api.blizzard.com/data/wow/item/${id}?&namespace=static-${region}`;
         return fetchAPI(url, 'GET', this._blizzardToken);
     };
 };

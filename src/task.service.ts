@@ -1,9 +1,3 @@
-import { User } from "discord.js";
-import DiscordService from "./discord.service";
-import FetchBlizzardService from "./fetchBlizzard.service";
-import { responses } from "./lib/config";
-import { consoleLog } from "./lib/utils";
-
 export default class TaskService {
     private _task: NodeJS.Timer;
 

@@ -10,7 +10,8 @@ export const discordBotTagChannels = [
 
 export const commands = {
     CHECK: '!check',
-    REALMS: '!realms'
+    REALMS: '!realms',
+    TOKEN: '!token'
 };
 
 export const responses = {

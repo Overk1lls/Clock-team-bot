@@ -58,7 +58,7 @@ export default class FetchBlizzardService {
         return fetchAPI(url, 'GET', this._blizzardToken);
     };
 
-    fetchItem = (region: string, id: number) => {
+    fetchItem = (region: string, id: string) => {
         const url = `https://${region}.api.blizzard.com/data/wow/item/${id}?&namespace=static-${region}`;
         return fetchAPI(url, 'GET', this._blizzardToken);
     };

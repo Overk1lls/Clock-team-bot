@@ -26,6 +26,6 @@ export const consoleLog = (text: string) => {
         currDate.getHours() + ':' +
         currDate.getMinutes() + ':' +
         currDate.getSeconds() + ':' +
-        ` ${text}`
+        `\n${text}`
     );
 };

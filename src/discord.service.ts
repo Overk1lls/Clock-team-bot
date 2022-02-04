@@ -1,8 +1,9 @@
 import { Client, DMChannel, NewsChannel, TextChannel, User } from "discord.js";
-import { commands, responses } from './lib/config';
+import { COMMANDS, RESPONSES, SHEETS_INDEXES } from './lib/config';
+import { consoleLog } from "./lib/utils";
 import FetchBlizzardService from "./fetchBlizzard.service";
 import TaskService from './task.service';
-import { consoleLog } from "./lib/utils";
+import GoogleSheetService from "./googleSheet.service";
 
 export default class DiscordService {
     private _discordClient: Client;
@@ -11,12 +12,20 @@ export default class DiscordService {
     private _subscribeListeners: User[];
     private _taskService: TaskService;
     private _tagChannels: string[];
+    private _googleSheetService: GoogleSheetService;
 
-    constructor(discordClient: Client, token: string, blizzardToken: string, tagChannels: string[]) {
+    constructor(
+        discordClient: Client,
+        token: string,
+        blizzardToken: string,
+        tagChannels: string[],
+        googleSheetService: GoogleSheetService
+    ) {
         this._discordClient = discordClient;
         this._token = token;
         this._fetchBlizzardService = new FetchBlizzardService(blizzardToken);
         this._tagChannels = tagChannels;
+        this._googleSheetService = googleSheetService;
         this.messageHandler();
     }
 
@@ -35,10 +44,7 @@ export default class DiscordService {
             const channel = msg.channel;
 
             // if message written in a channel
-            if (msg.channel.type === 'text' &&
-                this._tagChannels.includes(channel.id)
-            ) {
-
+            if (msg.channel.type === 'text' && this._tagChannels.includes(channel.id)) {
                 if (msg.mentions.users.size != 0) {
                     msg.mentions.users.map(user => {
                         if (user.id === this._discordClient.user.id) {
@@ -51,36 +57,36 @@ export default class DiscordService {
                 }
             } else if (msg.channel.type === 'dm') {
                 // if DM to the bot
-                const { content, author } = msg;
+                const { content: message, author } = msg;
 
-                consoleLog('Received a DM from ' + author.username + ': ' + content);
+                consoleLog('Received a DM from ' + author.username + ': ' + message);
 
                 // for commands, start with !
-                if (content.startsWith('!')) {
-                    const splitMsg = content.split(' ');
+                if (message.startsWith('!')) {
+                    const splitMsg = message.split(' ');
                     const command = splitMsg[0];
 
-                    if (Object.values(commands).includes(command)) {
-                        if (command === commands.CHECK) {
-                            const fullChar = splitMsg[1];
-                            const username = fullChar.split('-')[0].toUpperCase();
-                            const server = fullChar.split('-')[1].toUpperCase();
-                            const allKeysFlag = splitMsg.includes('all') || splitMsg.includes('ALL');
-                            const region = splitMsg.includes('eu') || splitMsg.includes('EU');
+                    if (Object.values(COMMANDS).includes(command)) {
+                        if (command === COMMANDS.CHECK) {
+                            const character = splitMsg[1];
+                            const username = character.split('-')[0].toUpperCase();
+                            const server = character.split('-')[1].toUpperCase();
+                            const allKeysFlag = splitMsg.filter(msg => msg.match(/all/i))[0];
+                            const region = splitMsg.filter(msg => msg.match(/eu|us/i))[0];
 
-                            const character = await this._fetchBlizzardService.fetchRIO(
+                            const fetchCharacter = await this._fetchBlizzardService.fetchRIO(
                                 username,
                                 server,
-                                region ? 'eu' : 'us'
+                                region
                             );
-                            if (character.error) {
+                            if (fetchCharacter.error) {
                                 this.replyToUser(
-                                    character.message,
+                                    fetchCharacter.message,
                                     author
                                 );
-                                console.log(character.message);
+                                console.log(fetchCharacter.message);
                             } else {
-                                const recentKeys: [] = character.mythic_plus_recent_runs;
+                                const recentKeys: [] = fetchCharacter.mythic_plus_recent_runs;
                                 const runs = allKeysFlag ? recentKeys : recentKeys.filter(
                                     (key: any) => key.mythic_level >= 20
                                 );
@@ -95,11 +101,11 @@ export default class DiscordService {
                                 this.replyToUser(
                                     response.length > 0 ?
                                         JSON.stringify(response, null, 2) :
-                                        responses.NO_KEYS,
+                                        RESPONSES.NO_KEYS,
                                     author
                                 );
                             }
-                        } else if (command === commands.REALMS) {
+                        } else if (command === COMMANDS.REALMS) {
                             const region = splitMsg.includes('eu') || splitMsg.includes('EU') ? 'eu' : 'us';
                             const indOfReg = splitMsg.indexOf(region);
                             if (indOfReg != -1) splitMsg.splice(indOfReg, 1);
@@ -111,7 +117,7 @@ export default class DiscordService {
                                 (region == 'eu' && currDate.getDay() != 3 && currDate.getHours() < 4)
                             ) {
                                 this.replyToUser(
-                                    responses.REALMS_UP,
+                                    RESPONSES.REALMS_UP,
                                     author
                                 );
                             } else {
@@ -123,7 +129,7 @@ export default class DiscordService {
                                     realm = (/eu/i).test(region) ? 'kazzak' : 'illidan';
                                 }
 
-                                const subscribe = splitMsg.includes('subscribe');
+                                const subscribe = splitMsg.filter(chunk => chunk.match(/subscribe/i))[0];
                                 const realmData = await this._fetchBlizzardService
                                     .fetchRealmData(region, realm);
                                 const realmStatus = await this._fetchBlizzardService
@@ -132,7 +138,7 @@ export default class DiscordService {
                                 if (realmStatus && realmStatus.code >= 400) {
                                     consoleLog(realmStatus.detail);
                                     this.replyToUser(
-                                        responses.SOMETHING_WRONG,
+                                        RESPONSES.SOMETHING_WRONG,
                                         author
                                     );
                                 } else {
@@ -146,12 +152,12 @@ export default class DiscordService {
                                     } else {
                                         if (this._subscribeListeners.includes(author)) {
                                             this.replyToUser(
-                                                responses.ALREADY_SUBBED,
+                                                RESPONSES.ALREADY_SUBBED,
                                                 author
                                             );
                                         } else {
                                             this.replyToUser(
-                                                responses.SUB_RESPONSE,
+                                                RESPONSES.SUB_RESPONSE,
                                                 author
                                             );
                                         }
@@ -167,14 +173,14 @@ export default class DiscordService {
                                     }
                                 }
                             }
-                        } else if (command === commands.TOKEN) {
-                            const filterRegion = splitMsg.filter(msg => msg.match(/(eu|us)/i));
-                            const region = filterRegion[0] ? filterRegion[0] : 'us';
+                        } else if (command === COMMANDS.TOKEN) {
+                            const filterRegion = splitMsg.filter(msg => msg.match(/eu|us/i))[0];
+                            const region = filterRegion ? filterRegion : 'us';
 
                             const token = await this._fetchBlizzardService.fetchGameToken(region);
                             if (token.error) {
                                 this.replyToUser(
-                                    responses.SOMETHING_WRONG,
+                                    RESPONSES.SOMETHING_WRONG,
                                     author
                                 );
                             } else {
@@ -184,10 +190,56 @@ export default class DiscordService {
                                     author
                                 );
                             }
+                        } else if (command === COMMANDS.WISHLIST) {
+                            const id = splitMsg[1];
+
+                            if (!id.match(/\d{2,}/)) {
+                                this.replyToUser(
+                                    RESPONSES.NOT_RECOGNIZED,
+                                    author
+                                );
+                            } else {
+                                const filterRegion = splitMsg.filter(msg => msg.match(/eu|us/i))[0];
+                                const region = filterRegion ? filterRegion : 'eu';
+                                const username = splitMsg[2];
+                                const priority = splitMsg[3];
+
+                                const item = await this._fetchBlizzardService.fetchItem(region, id);
+
+                                if (item?.error) {
+                                    this.replyToUser(
+                                        RESPONSES.SOMETHING_WRONG,
+                                        author
+                                    );
+                                    consoleLog(item.error);
+                                } else {
+                                    const itemName = item.name.ru_RU;
+                                    const sheet = this._googleSheetService.googleSheet.sheetsByIndex[SHEETS_INDEXES.WISHLIST];
+                                    const rows = await sheet.getRows();
+
+                                    const itemRowTitle = 'Предмет';
+                                    const userRow = rows.filter(row => row[itemRowTitle] === itemName)[0];
+
+                                    if (!userRow[username] || userRow[username] === '') {
+                                        userRow[username] = priority;
+                                        await userRow.save();
+                                    } else {
+                                        this.replyToUser(
+                                            RESPONSES.ALREADY_PRIORITIZED,
+                                            author
+                                        );
+                                    }
+                                }
+                            }
+                        } else if (command === COMMANDS.COMMANDS) {
+                            this.replyToUser(
+                                RESPONSES.COMMANDS,
+                                author
+                            );
                         }
                     } else {
                         this.replyToUser(
-                            responses.NOT_RECOGNIZED,
+                            RESPONSES.NOT_RECOGNIZED,
                             author
                         );
                     }
@@ -206,7 +258,7 @@ export default class DiscordService {
 
         (<TextChannel | DMChannel | NewsChannel>responseChannel).send(message);
 
-        consoleLog('ANSWERED: ' + message);
+        consoleLog('ANSWERED:\n' + message);
     };
 
     replyToUser = (message: string, user: User) => {
@@ -218,6 +270,6 @@ export default class DiscordService {
             .get(userId)
             .send(message);
 
-        consoleLog('ANSWERED: ' + message);
+        consoleLog('ANSWERED:\n,' + message);
     };
 };

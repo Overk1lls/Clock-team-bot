@@ -1,11 +1,11 @@
-import { config } from 'dotenv';
+import { DiscordService } from './services/discord.service';
+import { GoogleSheetService } from './services/googleSheet.service';
+import { config as dotenvInit } from 'dotenv';
 import { Client } from 'discord.js';
-import { discordBotTagChannels } from './lib/config';
 import { connect } from 'mongoose';
-import DiscordService from './discord.service';
-import GoogleSheetSevrice from './googleSheet.service';
+import { BlizzardService } from './services/blizzard.service';
 
-config();
+dotenvInit();
 
 const {
     DISCORD_BOT_TOKEN,
@@ -22,13 +22,22 @@ connect(MONGODB_URI, {
 });
 
 const client = new Client();
-const GoogleSheetService = new GoogleSheetSevrice(SPREADSHEET_ID, GOOGLE_SERVICE_EMAIL, GOOGLE_PRIVATE_KEY);
-const discordClient = new DiscordService(
-    client,
-    DISCORD_BOT_TOKEN,
-    BLIZZARD_AUTH_TOKEN,
-    discordBotTagChannels,
-    GoogleSheetService
-);
+const googleSheetService = new GoogleSheetService(SPREADSHEET_ID, GOOGLE_SERVICE_EMAIL, GOOGLE_PRIVATE_KEY);
+const blizzardService = new BlizzardService();
 
-discordClient.start();
+const start = async () => {
+    const discordClient = new DiscordService(
+        client,
+        DISCORD_BOT_TOKEN,
+        blizzardService,
+        GoogleSheetService
+    );
+
+    await blizzardService.setup(BLIZZARD_AUTH_TOKEN);
+    await discordClient.start();
+};
+
+start().catch(err => {
+    console.error(err);
+    process.exit(1);
+});

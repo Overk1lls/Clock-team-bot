@@ -23,9 +23,21 @@ export const fetchAPI = async (
 export const consoleLog = (text: string) => {
     const currDate = new Date();
     console.log(
-        currDate.getHours() + ':' +
-        currDate.getMinutes() + ':' +
-        currDate.getSeconds() + ':' +
-        `\n${text}`
+        `${currDate.getHours()}:${currDate.getMinutes()}:${currDate.getSeconds()} ${text}`
     );
+};
+
+export const getRegionFromText = (text: string[]) => {
+    const region = text.filter(chunk => chunk.match(/eu|us/i))[0];
+    return region ? region : 'us';
+};
+
+export const createTask = (
+    timer: number,
+    callback: Function,
+    ...callbackArgs: any[]
+) => {
+    return setInterval(() => {
+        callback.apply(null, callbackArgs);
+    }, timer);
 };

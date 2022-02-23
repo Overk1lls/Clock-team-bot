@@ -1,6 +1,6 @@
 import { GoogleSpreadsheet, GoogleSpreadsheetWorksheet } from "google-spreadsheet";
 
-export default class GoogleSheetService {
+export class GoogleSheetService {
     private _googleSheet: GoogleSpreadsheet;
     private _sheet: GoogleSpreadsheetWorksheet;
 

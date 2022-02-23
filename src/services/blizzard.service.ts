@@ -1,11 +1,9 @@
-import { fetchAPI } from "./lib/utils";
+import { fetchAPI } from "../lib/utils";
 
-export default class FetchBlizzardService {
+export class BlizzardService {
     private _blizzardToken: string;
 
-    constructor(blizzAuthToken: string) {
-        this.setup(blizzAuthToken);
-    }
+    constructor() { }
 
     setup = async (blizzAuthToken: string) => {
         const url = 'https://eu.battle.net/oauth/token';
@@ -45,7 +43,7 @@ export default class FetchBlizzardService {
         return fetchAPI(url, 'GET', this._blizzardToken);
     };
 
-    fetchRealmStatus = (
+    fetchRealm = (
         region: string,
         realm: string
     ) => {

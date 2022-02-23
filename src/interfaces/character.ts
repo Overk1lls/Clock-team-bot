@@ -1,4 +1,4 @@
-export default interface ICharacter {
+export interface ICharacter {
     character: string,
     fraction: string,
     reputations: [{

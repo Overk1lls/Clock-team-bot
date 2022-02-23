@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose"
-import ICharacter from "../interfaces/character";
+import { ICharacter } from "../interfaces/character";
 
 const character = new Schema<ICharacter>({
     character: { type: String, required: true },

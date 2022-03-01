@@ -179,7 +179,7 @@ export class DiscordService {
                                                 } else {
                                                     consoleLog(BotResponses.REALMS_DOWN);
                                                 }
-                                            }, 10000);
+                                            }, 60000);
                                         }
                                     }
                                 }

@@ -30,7 +30,7 @@ const start = async () => {
         client,
         DISCORD_BOT_TOKEN,
         blizzardService,
-        GoogleSheetService
+        googleSheetService
     );
 
     await blizzardService.setup(BLIZZARD_AUTH_TOKEN);

@@ -122,9 +122,10 @@ export class DiscordService {
                                     'illidan';
 
                                 const subscribe = msgChunks.filter(chunk => chunk.match(/subscribe/i))[0];
-
+                                
                                 const realmData = await this._blizzardService
                                     .fetchRealmData(region, realmName);
+
                                 const realm = await this._blizzardService
                                     .fetchRealm(region, realmData.id);
 
@@ -162,7 +163,7 @@ export class DiscordService {
                                                 const server = await this
                                                     ._blizzardService
                                                     .fetchRealm(
-                                                        realmName,
+                                                        region,
                                                         realmData.id
                                                     );
 
@@ -178,7 +179,7 @@ export class DiscordService {
                                                 } else {
                                                     consoleLog(BotResponses.REALMS_DOWN);
                                                 }
-                                            }, 60000);
+                                            }, 10000);
                                         }
                                     }
                                 }

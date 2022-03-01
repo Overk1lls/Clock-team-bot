@@ -1,5 +1,4 @@
 import { BlizzardService } from "./blizzard.service";
-import { GoogleSheetService } from "./googleSheet.service";
 import { UserRepository } from "../repositories/user.repository";
 import { Channel, Client, DMChannel, TextChannel, User } from "discord.js";
 import { botCommands, discordBotTagChannels, BotResponses } from '../lib/config';
@@ -9,20 +8,17 @@ export class DiscordService {
     private _discordClient: Client;
     private _token: string;
     private _blizzardService: BlizzardService;
-    private _googleSheetService: GoogleSheetService;
     private _subscribers: UserRepository;
     private _subscribeTask: NodeJS.Timer;
 
     constructor(
         discordClient: Client,
         token: string,
-        blizzardService: BlizzardService,
-        googleSheetService: GoogleSheetService
+        blizzardService: BlizzardService
     ) {
         this._discordClient = discordClient;
         this._token = token;
         this._blizzardService = blizzardService;
-        this._googleSheetService = googleSheetService;
         this._subscribers = new UserRepository();
         this.messageHandler();
     }
@@ -204,46 +200,6 @@ export class DiscordService {
                                     `Token price is: ${price.toString().substring(0, 6)} gold`,
                                     author
                                 );
-                            }
-                        } else if (command === botCommands.WISHLIST) {
-                            const id = msgChunks[1];
-
-                            if (!id.match(/\d{2,}/)) {
-                                this.reply(
-                                    BotResponses.COMMAND_NOT_RECOGNIZED,
-                                    author
-                                );
-                            } else {
-                                const region = getRegionFromText(msgChunks);
-                                const username = msgChunks[2];
-                                const priority = msgChunks[3];
-
-                                const item = await this._blizzardService.fetchItem(region, id);
-
-                                if (item?.error) {
-                                    this.reply(
-                                        BotResponses.SOMETHING_WRONG,
-                                        author
-                                    );
-                                    consoleLog(item.error);
-                                } else {
-                                    const itemName = item.name.ru_RU;
-                                    const sheet = this._googleSheetService.googleSheet.sheetsByIndex[0];
-                                    const rows = await sheet.getRows();
-
-                                    const itemRowTitle = 'Предмет';
-                                    const userRow = rows.filter(row => row[itemRowTitle] === itemName)[0];
-
-                                    if (!userRow[username] || userRow[username] === '') {
-                                        userRow[username] = priority;
-                                        await userRow.save();
-                                    } else {
-                                        this.reply(
-                                            BotResponses.ALREADY_PRIO,
-                                            author
-                                        );
-                                    }
-                                }
                             }
                         } else if (command === botCommands.COMMANDS) {
                             this.reply(

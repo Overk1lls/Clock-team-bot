@@ -1,5 +1,4 @@
 import { DiscordService } from './services/discord.service';
-import { GoogleSheetService } from './services/googleSheet.service';
 import { config as dotenvInit } from 'dotenv';
 import { Client } from 'discord.js';
 import { connect } from 'mongoose';
@@ -11,9 +10,6 @@ const {
     DISCORD_BOT_TOKEN,
     BLIZZARD_AUTH_TOKEN,
     MONGODB_URI,
-    SPREADSHEET_ID,
-    GOOGLE_SERVICE_EMAIL,
-    GOOGLE_PRIVATE_KEY
 } = process.env;
 
 connect(MONGODB_URI, {
@@ -22,15 +18,13 @@ connect(MONGODB_URI, {
 });
 
 const client = new Client();
-const googleSheetService = new GoogleSheetService(SPREADSHEET_ID, GOOGLE_SERVICE_EMAIL, GOOGLE_PRIVATE_KEY);
 const blizzardService = new BlizzardService();
 
 const start = async () => {
     const discordClient = new DiscordService(
         client,
         DISCORD_BOT_TOKEN,
-        blizzardService,
-        googleSheetService
+        blizzardService
     );
 
     await blizzardService.setup(BLIZZARD_AUTH_TOKEN);

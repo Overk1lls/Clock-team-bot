@@ -1,21 +1,21 @@
 import { User } from "discord.js"
 
 export class UserRepository {
-    private readonly _listeners: User[];
+    private _listeners: Set<User>;
 
     constructor() {
-        this._listeners = [] as User[];
+        this._listeners = new Set<User>();
     };
 
-    push(user: User) {
-        this._listeners.push(user);
+    add(user: User) {
+        this._listeners.add(user);
     }
 
     has(user: User) {
-        return this._listeners.includes(user);
+        return this._listeners.has(user);
     }
 
-    public get users(): User[] {
+    public get users(): Set<User> {
         return this._listeners;
     }
 };

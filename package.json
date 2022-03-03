@@ -1,10 +1,10 @@
 {
   "name": "clock-team-bot",
-  "version": "1.1.2",
-  "description": "",
-  "main": "index.js",
+  "version": "1.2.1",
+  "description": "The Discord bot that serves as a provider of information related to World of Warcraft",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "start": "node dist/index.js",
     "postinstall": "tsc",
     "dev": "npx tsc & node dist/index.js"
@@ -20,8 +20,14 @@
   },
   "devDependencies": {
     "@babel/helper-compilation-targets": "^7.15.4",
+    "@babel/preset-env": "^7.16.11",
+    "@babel/preset-typescript": "^7.16.7",
+    "@types/jest": "^27.4.1",
     "@types/node-fetch": "^3.0.3",
+    "jest": "^27.5.1",
     "nodemon": "^2.0.15",
+    "ts-jest": "^27.1.3",
+    "ts-node": "^10.6.0",
     "typescript": "^4.5.5"
   }
 }

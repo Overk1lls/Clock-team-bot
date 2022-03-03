@@ -26,12 +26,12 @@ export class BlizzardService {
     };
 
     fetchRIO = (
-        character: string,
+        nickname: string,
         realm: string,
         region: string,
         fields = 'mythic_plus_recent_runs'
     ) => {
-        const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${realm}&name=${character}&fields=${fields}`;
+        const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${realm}&name=${nickname}&fields=${fields}`;
         return fetchAPI(url);
     };
 

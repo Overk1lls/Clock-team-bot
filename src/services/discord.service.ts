@@ -1,8 +1,10 @@
 import { BlizzardService } from "./blizzard.service";
 import { UserRepository } from "../repositories/user.repository";
 import { Channel, Client, DMChannel, TextChannel, User } from "discord.js";
-import { botCommands, discordBotTagChannels, BotResponses } from '../lib/config';
-import { consoleLog, getRegionFromText } from "../lib/utils";
+import { BotCommands, discordBotTagChannels, BotResponses } from '../lib/config';
+import { consoleLog, getRegionFromText, isStringIncluded } from "../lib/utils";
+import { subscribeWord } from "../lib/regexps";
+import { DiscordBotError, ErrorCode } from "../errors";
 
 export class DiscordService {
     private _discordClient: Client;
@@ -55,171 +57,231 @@ export class DiscordService {
                 const { content: message, author } = msg;
 
                 consoleLog(`Received a DM from ${author.username}: ${message}`);
+                try {
+                    if (message.startsWith('!')) {
+                        const msgChunks = message.split(' ');
+                        const command = msgChunks[0];
 
-                if (message.startsWith('!')) {
-                    const msgChunks = message.split(' ');
-                    const command = msgChunks[0];
+                        if (isStringIncluded(BotCommands, command)) {
+                            switch (command) {
+                                case BotCommands.CHECK: {
+                                    const region = getRegionFromText(msgChunks);
+                                    const character = msgChunks.filter(
+                                        chunk => chunk.includes('-')
+                                    )[0];
+                                    const nickname = character.split('-')[0].toUpperCase();
+                                    const realm = character.split('-')[1].toUpperCase();
+                                    const allKeysFlag = msgChunks.filter(chunk => chunk.match(/all/i))[0];
 
-                    if (Object.values(botCommands).includes(command)) {
-                        if (command === botCommands.CHECK) {
-                            const character = msgChunks[1];
-                            const username = character.split('-')[0].toUpperCase();
-                            const server = character.split('-')[1].toUpperCase();
-                            const showAll = msgChunks.filter(chunk => chunk.match(/all/i))[0];
-                            const region = getRegionFromText(msgChunks);
+                                    const characterRIO = await this._blizzardService
+                                        .fetchRIO(
+                                            nickname,
+                                            realm,
+                                            region
+                                        );
 
-                            const characterRIO = await this
-                                ._blizzardService
-                                .fetchRIO(
-                                    username,
-                                    server,
-                                    region
-                                );
+                                    if (characterRIO.error) {
+                                        throw new DiscordBotError(
+                                            ErrorCode.FETCH_ERROR,
+                                            characterRIO.error
+                                        );
+                                    }
 
-                            if (characterRIO.error) {
-                                this.reply(
-                                    BotResponses.SOMETHING_WRONG,
-                                    author
-                                );
-                                consoleLog(characterRIO.message)
-                            } else {
-                                const recentKeys: any[] = characterRIO.mythic_plus_recent_runs;
-                                const keys = showAll ?
-                                    recentKeys :
-                                    recentKeys.filter(
-                                        key => key.mythic_level >= 20
-                                    );
+                                    const keys = allKeysFlag ?
+                                        characterRIO.mythic_plus_recent_runs :
+                                        characterRIO.mythic_plus_recent_runs.filter(
+                                            (key: any) => key.mythic_level >= 20
+                                        );
 
-                                let response: string[] = [];
-                                keys.map(key => {
-                                    response.push(
-                                        `${key.short_name}: ${key.mythic_level} (+${key.num_keystone_upgrades}) - ${new Date(key.completed_at).toUTCString()}, url: <${key.url}>`
-                                    );
-                                });
+                                    let response: string[] = [];
+                                    keys.map((key: any) => {
+                                        const keyName: string = key.short_name;
+                                        const keyLevel: string = key.mythic_level;
+                                        const keyUpgrades: string = key.num_keystone_upgrades;
+                                        const keyUrl: string = key.url;
+                                        const keyDate = new Date(key.completed_at).toUTCString();
+                                        response.push(
+                                            `${keyName}: ${keyLevel} (+${keyUpgrades}) - ${keyDate}, url: <${keyUrl}>`
+                                        );
+                                    });
 
-                                this.reply(
-                                    response.length > 0 ?
-                                        JSON.stringify(response, null, 2) :
-                                        BotResponses.NO_KEYS,
-                                    author
-                                );
-                            }
-                        } else if (command === botCommands.REALMS) {
-                            const region = getRegionFromText(msgChunks);
-                            const currDate = new Date();
-
-                            if (
-                                (region === 'us' && currDate.getDay() != 2 && currDate.getHours() < 17) ||
-                                (region === 'eu' && currDate.getDay() != 3 && currDate.getHours() < 4)
-                            ) {
-                                this.reply(
-                                    BotResponses.REALMS_UP,
-                                    author
-                                );
-                            } else {
-                                const realmName = region.toLocaleLowerCase() === 'eu' ?
-                                    'kazzak' :
-                                    'illidan';
-
-                                const subscribe = msgChunks.filter(chunk => chunk.match(/subscribe/i))[0];
-                                
-                                const realmData = await this._blizzardService
-                                    .fetchRealmData(region, realmName);
-
-                                const realm = await this._blizzardService
-                                    .fetchRealm(region, realmData.id);
-
-                                if (realm && realm.code >= 400) {
-                                    consoleLog(realm.detail);
                                     this.reply(
-                                        BotResponses.SOMETHING_WRONG,
+                                        response.length > 0 ?
+                                            JSON.stringify(response, null, 2) :
+                                            BotResponses.NO_KEYS,
                                         author
                                     );
-                                } else {
-                                    const status = realm.status.type;
+                                    break;
+                                }
 
-                                    if (!subscribe || status === 'UP') {
+                                case BotCommands.REALMS: {
+                                    const region = getRegionFromText(msgChunks);
+                                    const currDate = new Date();
+
+                                    if (
+                                        (region === 'us' && currDate.getDay() != 2 && currDate.getHours() < 17) ||
+                                        (region === 'eu' && currDate.getDay() != 3 && currDate.getHours() < 4)
+                                    ) {
                                         this.reply(
-                                            `${realmData.slug.toUpperCase()} server status is ${status}`,
+                                            BotResponses.REALMS_UP,
                                             author
                                         );
                                     } else {
-                                        if (this._subscribers.has(author)) {
-                                            this.reply(
-                                                BotResponses.ALREADY_SUBBED,
-                                                author
-                                            );
-                                        } else {
-                                            this._subscribers.push(author);
+                                        let realmName = msgChunks.filter(
+                                            chunk =>
+                                                chunk !== region && chunk !== command && !chunk.match(subscribeWord)
+                                        )[0];
+                                        realmName = realmName ?
+                                            realmName :
+                                            region.toLocaleLowerCase() === 'eu' ?
+                                                'kazzak' :
+                                                'illidan';
 
-                                            this.reply(
-                                                BotResponses.SUBBED,
-                                                author
+                                        const subscribe = msgChunks.filter(chunk => chunk.match(subscribeWord))[0];
+
+                                        const realmData = await this._blizzardService
+                                            .fetchRealmData(region, realmName);
+
+                                        if (realmData?.code >= 400) {
+                                            console.error(realmData.detail);
+                                            throw new DiscordBotError(
+                                                ErrorCode.FETCH_ERROR,
+                                                BotResponses.BAD_DATA
                                             );
                                         }
+                                        const realm = await this._blizzardService
+                                            .fetchRealm(region, realmData.id);
 
-                                        if (!this._subscribeTask?.hasRef()) {
-                                            this._subscribeTask = setInterval(async () => {
-                                                const server = await this
-                                                    ._blizzardService
-                                                    .fetchRealm(
-                                                        region,
-                                                        realmData.id
-                                                    );
+                                        if (realm?.code >= 400) {
+                                            console.error(realm.detail);
+                                            throw new DiscordBotError(
+                                                ErrorCode.FETCH_ERROR,
+                                                BotResponses.BAD_DATA
+                                            );
+                                        }
+                                        const status = realm.status.type;
 
-                                                if (server.status.type === 'UP') {
-                                                    clearInterval(this._subscribeTask);
+                                        if (subscribe && status === 'DOWN') {
+                                            this._subscribers.add(author);
+                                            
+                                            this.reply(
+                                                (this._subscribers.has(author) ?
+                                                    BotResponses.ALREADY_SUBBED :
+                                                    BotResponses.SUBBED),
+                                                author
+                                            );
 
-                                                    if (this._subscribers.users.length !== 0) {
-                                                        this.reply(
-                                                            BotResponses.REALMS_UP,
-                                                            this._subscribers.users
+                                            if (!this._subscribeTask?.hasRef()) {
+                                                this._subscribeTask = setInterval(async () => {
+                                                    const server = await this
+                                                        ._blizzardService
+                                                        .fetchRealm(
+                                                            region,
+                                                            realmData.id
                                                         );
+
+                                                    if (server.status.type === 'UP') {
+                                                        clearInterval(this._subscribeTask);
+
+                                                        if (this._subscribers.users.size !== 0) {
+                                                            this.reply(
+                                                                BotResponses.REALMS_UP,
+                                                                this._subscribers.users
+                                                            );
+                                                        }
+                                                    } else {
+                                                        consoleLog(BotResponses.REALMS_DOWN);
                                                     }
-                                                } else {
-                                                    consoleLog(BotResponses.REALMS_DOWN);
-                                                }
-                                            }, 60000);
+                                                }, 60000);
+                                            }
+                                        } else {
+                                            this.reply(
+                                                BotResponses.REALMS_UP,
+                                                author
+                                            );
                                         }
                                     }
+
+                                    break;
+                                }
+
+                                case BotCommands.TOKEN: {
+                                    const region = getRegionFromText(msgChunks);
+
+                                    const token = await this._blizzardService
+                                        .fetchGameToken(region);
+
+                                    if (token.code >= 400) {
+                                        console.error(token.detail);
+
+                                        throw new DiscordBotError(
+                                            ErrorCode.FETCH_ERROR,
+                                            BotResponses.SOMETHING_WRONG
+                                        );
+                                    }
+
+                                    const price: number = token.price;
+                                    this.reply(
+                                        `Token price is: ${price.toString().substring(0, 6)} gold`,
+                                        author
+                                    );
+
+                                    break;
+                                }
+
+                                case BotCommands.COMMANDS: {
+                                    this.reply(
+                                        BotResponses.COMMANDS_LIST,
+                                        author
+                                    );
+
+                                    break;
+                                }
+
+                                default: {
+                                    this.reply(
+                                        BotResponses.COMMAND_NOT_RECOGNIZED,
+                                        author
+                                    );
+
+                                    break;
                                 }
                             }
-                        } else if (command === botCommands.TOKEN) {
-                            const region = getRegionFromText(msgChunks);
+                        }
+                    }
+                } catch (err) {
+                    console.error(err);
 
-                            const token = await this._blizzardService.fetchGameToken(region);
-
-                            if (token.error) {
+                    if (err instanceof DiscordBotError) {
+                        switch (err.code) {
+                            case ErrorCode.FETCH_ERROR: {
                                 this.reply(
-                                    BotResponses.SOMETHING_WRONG,
-                                    author
-                                );
-                                consoleLog(token);
-                            } else {
-                                const price: number = token.price;
-                                this.reply(
-                                    `Token price is: ${price.toString().substring(0, 6)} gold`,
-                                    author
-                                );
+                                    (err.message ?
+                                        err.message :
+                                        BotResponses.BAD_DATA),
+                                    author);
+                                break;
                             }
-                        } else if (command === botCommands.COMMANDS) {
-                            this.reply(
-                                BotResponses.COMMANDS_LIST,
-                                author
-                            );
+
+                            case ErrorCode.NOT_FOUND: {
+                                this.reply('NOT FOUND', author);
+                                break;
+                            }
+
+                            default: {
+                                this.reply(BotResponses.SOMETHING_WRONG, author);
+                                break;
+                            }
                         }
                     } else {
-                        this.reply(
-                            BotResponses.COMMAND_NOT_RECOGNIZED,
-                            author
-                        );
+                        this.reply(BotResponses.SOMETHING_WRONG, author);
                     }
                 }
             }
         });
     };
 
-    private reply = (message: string, where: TextChannel | DMChannel | User | User[]) => {
+    private reply = (message: string, where: TextChannel | DMChannel | User | Set<User>) => {
         if (where instanceof Channel) {
             const channel = this._discordClient
                 .channels
@@ -228,7 +290,7 @@ export class DiscordService {
 
             (<TextChannel | DMChannel>channel).send(message);
         } else {
-            if (where instanceof Array) {
+            if (where instanceof Set) {
                 where.forEach(user => {
                     this.getUser(user).send(message);
                 });

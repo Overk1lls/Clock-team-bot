@@ -1,6 +1,6 @@
-import fetch from 'node-fetch';
+import fetch, { Response } from 'node-fetch';
 
-export const fetchAPI = async (
+export const fetchAPI = (
     url: string,
     method = 'GET',
     bearer = '',
@@ -8,23 +8,22 @@ export const fetchAPI = async (
     authorization = 'Bearer ' + bearer,
     contentType = 'application/json',
 ) => {
-    return await fetch(url, {
+    return fetch(url, {
         method,
         headers: {
             Authorization: authorization,
             'Content-Type': contentType
         },
         body
-    })
-        .then((res: Response) => res.json())
-        .catch((err: Error) => console.log(err.message));
+    }).then((res: Response) => res.json());
 };
 
 export const consoleLog = (text: string) => {
-    const currDate = new Date();
-    console.log(
-        `${currDate.getHours()}:${currDate.getMinutes()}:${currDate.getSeconds()} ${text}`
-    );
+    const curDate = new Date();
+    const curHours = curDate.getHours();
+    const curMinutes = curDate.getMinutes();
+    const curSeconds = curDate.getSeconds();
+    console.log(`${curHours}:${curMinutes}:${curSeconds} ${text}`);
 };
 
 export const getRegionFromText = (text: string[]) => {
@@ -41,3 +40,7 @@ export const createTask = (
         callback.apply(null, callbackArgs);
     }, timer);
 };
+
+export const isStringIncluded = (values: Object | Enumerator<string>, string: string) => {
+    return Object.values(values).includes(string);
+}; 

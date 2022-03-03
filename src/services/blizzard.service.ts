@@ -2,6 +2,7 @@ import { fetchAPI } from "../lib/utils";
 
 export class BlizzardService {
     private _blizzardToken: string;
+    private _refreshTokenTimer: NodeJS.Timer;
 
     constructor() { }
 
@@ -21,8 +22,9 @@ export class BlizzardService {
             body,
             headers.authorization,
             headers.contentType
-        )
-            .then(token => this._blizzardToken = token.access_token);
+        ).then((token: any) => this._blizzardToken = token.access_token);
+
+        setTimeout(() => this.setup(blizzAuthToken), 86000 * 1000);
     };
 
     fetchRIO = (

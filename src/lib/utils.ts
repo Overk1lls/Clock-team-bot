@@ -27,7 +27,7 @@ export const consoleLog = (text: string) => {
 };
 
 export const getRegionFromText = (text: string[]) => {
-    const region = text.filter(chunk => chunk.match(/eu|us/i))[0];
+    const region = text.filter(chunk => chunk.match(/eu|us/i))[0]?.toLocaleLowerCase();
     return region ? region : 'us';
 };
 

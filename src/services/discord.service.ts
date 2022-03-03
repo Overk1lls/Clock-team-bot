@@ -28,10 +28,8 @@ export class DiscordService {
     start = async () => {
         await this._discordClient
             .login(this._token)
-            .then(async () => {
-                consoleLog(
-                    `${this._discordClient.user.username} is ready`
-                );
+            .then(() => {
+                consoleLog(`${this._discordClient.user.username} is ready`);
             });
     };
 
@@ -65,13 +63,13 @@ export class DiscordService {
                         if (isStringIncluded(BotCommands, command)) {
                             switch (command) {
                                 case BotCommands.CHECK: {
-                                    const region = getRegionFromText(msgChunks);
-                                    const character = msgChunks.filter(
-                                        chunk => chunk.includes('-')
-                                    )[0];
+                                    const character = msgChunks
+                                        .filter(chunk => chunk.includes('-'))[0];
+                                    const allKeysFlag = msgChunks
+                                        .filter(chunk => chunk.match(/all/i))[0];
                                     const nickname = character.split('-')[0].toUpperCase();
                                     const realm = character.split('-')[1].toUpperCase();
-                                    const allKeysFlag = msgChunks.filter(chunk => chunk.match(/all/i))[0];
+                                    const region = getRegionFromText(msgChunks);
 
                                     const characterRIO = await this._blizzardService
                                         .fetchRIO(
@@ -116,92 +114,90 @@ export class DiscordService {
 
                                 case BotCommands.REALMS: {
                                     const region = getRegionFromText(msgChunks);
-                                    const currDate = new Date();
+                                    const curDate = new Date();
+                                    const curDay = curDate.getDay();
+                                    const curHours = curDate.getHours();
 
                                     if (
-                                        (region === 'us' && currDate.getDay() != 2 && currDate.getHours() < 17) ||
-                                        (region === 'eu' && currDate.getDay() != 3 && currDate.getHours() < 4)
+                                        (region === 'us' && curDay != 2 && curHours < 17) ||
+                                        (region === 'eu' && curDay != 3 && curHours < 4)
                                     ) {
                                         this.reply(
                                             BotResponses.REALMS_UP,
                                             author
                                         );
-                                    } else {
-                                        let realmName = msgChunks.filter(
-                                            chunk =>
-                                                chunk !== region && chunk !== command && !chunk.match(subscribeWord)
-                                        )[0];
-                                        realmName = realmName ?
-                                            realmName :
-                                            region.toLocaleLowerCase() === 'eu' ?
-                                                'kazzak' :
-                                                'illidan';
-
-                                        const subscribe = msgChunks.filter(chunk => chunk.match(subscribeWord))[0];
-
-                                        const realmData = await this._blizzardService
-                                            .fetchRealmData(region, realmName);
-
-                                        if (realmData?.code >= 400) {
-                                            console.error(realmData.detail);
-                                            throw new DiscordBotError(
-                                                ErrorCode.FETCH_ERROR,
-                                                BotResponses.BAD_DATA
-                                            );
-                                        }
-                                        const realm = await this._blizzardService
-                                            .fetchRealm(region, realmData.id);
-
-                                        if (realm?.code >= 400) {
-                                            console.error(realm.detail);
-                                            throw new DiscordBotError(
-                                                ErrorCode.FETCH_ERROR,
-                                                BotResponses.BAD_DATA
-                                            );
-                                        }
-                                        const status = realm.status.type;
-
-                                        if (subscribe && status === 'DOWN') {
-                                            this._subscribers.add(author);
-                                            
-                                            this.reply(
-                                                (this._subscribers.has(author) ?
-                                                    BotResponses.ALREADY_SUBBED :
-                                                    BotResponses.SUBBED),
-                                                author
-                                            );
-
-                                            if (!this._subscribeTask?.hasRef()) {
-                                                this._subscribeTask = setInterval(async () => {
-                                                    const server = await this
-                                                        ._blizzardService
-                                                        .fetchRealm(
-                                                            region,
-                                                            realmData.id
-                                                        );
-
-                                                    if (server.status.type === 'UP') {
-                                                        clearInterval(this._subscribeTask);
-
-                                                        if (this._subscribers.users.size !== 0) {
-                                                            this.reply(
-                                                                BotResponses.REALMS_UP,
-                                                                this._subscribers.users
-                                                            );
-                                                        }
-                                                    } else {
-                                                        consoleLog(BotResponses.REALMS_DOWN);
-                                                    }
-                                                }, 60000);
-                                            }
-                                        } else {
-                                            this.reply(
-                                                BotResponses.REALMS_UP,
-                                                author
-                                            );
-                                        }
+                                        return;
                                     }
+                                    let realmName = msgChunks
+                                        .filter(
+                                            chunk =>
+                                                chunk !== region &&
+                                                chunk !== command &&
+                                                !chunk.match(subscribeWord)
+                                        )[0];
+                                    realmName = realmName ?
+                                        realmName :
+                                        region === 'eu' ?
+                                            'kazzak' :
+                                            'illidan';
 
+                                    const subscribe = msgChunks
+                                        .filter(chunk => chunk.match(subscribeWord))[0];
+
+                                    const realmData = await this._blizzardService
+                                        .fetchRealmData(region, realmName);
+
+                                    const realm = await this._blizzardService
+                                        .fetchRealm(region, realmData.id);
+
+                                    if (realmData?.code >= 400 || realm?.code >= 400) {
+                                        console.error(realm.detail);
+                                        throw new DiscordBotError(
+                                            ErrorCode.FETCH_ERROR,
+                                            BotResponses.BAD_DATA
+                                        );
+                                    }
+                                    const status = realm.status.type;
+
+                                    if (subscribe && status === 'DOWN') {
+                                        this._subscribers.add(author);
+
+                                        this.reply(
+                                            (this._subscribers.has(author) ?
+                                                BotResponses.ALREADY_SUBBED :
+                                                BotResponses.SUBBED),
+                                            author
+                                        );
+
+                                        if (!this._subscribeTask?.hasRef()) {
+                                            this._subscribeTask = setInterval(async () => {
+                                                const server = await this
+                                                    ._blizzardService
+                                                    .fetchRealm(
+                                                        region,
+                                                        realmData.id
+                                                    );
+
+                                                if (server.status.type === 'UP') {
+                                                    clearInterval(this._subscribeTask);
+
+                                                    if (this._subscribers.users.size !== 0) {
+                                                        this.reply(
+                                                            BotResponses.REALMS_UP,
+                                                            this._subscribers.users
+                                                        );
+                                                    }
+                                                } else {
+                                                    consoleLog(BotResponses.REALMS_DOWN);
+                                                }
+                                            }, 60000);
+                                        }
+                                    } else {
+                                        this.reply(
+                                            BotResponses.REALMS_UP,
+                                            author
+                                        );
+                                    }
                                     break;
                                 }
 
@@ -211,9 +207,8 @@ export class DiscordService {
                                     const token = await this._blizzardService
                                         .fetchGameToken(region);
 
-                                    if (token.code >= 400) {
+                                    if (token?.code >= 400) {
                                         console.error(token.detail);
-
                                         throw new DiscordBotError(
                                             ErrorCode.FETCH_ERROR,
                                             BotResponses.SOMETHING_WRONG
@@ -221,11 +216,13 @@ export class DiscordService {
                                     }
 
                                     const price: number = token.price;
+                                    const priceToStr: string = price
+                                        .toString()
+                                        .substring(0, 6);
                                     this.reply(
-                                        `Token price is: ${price.toString().substring(0, 6)} gold`,
+                                        `Token price is: ${priceToStr} gold`,
                                         author
                                     );
-
                                     break;
                                 }
 
@@ -234,7 +231,6 @@ export class DiscordService {
                                         BotResponses.COMMANDS_LIST,
                                         author
                                     );
-
                                     break;
                                 }
 
@@ -243,7 +239,6 @@ export class DiscordService {
                                         BotResponses.COMMAND_NOT_RECOGNIZED,
                                         author
                                     );
-
                                     break;
                                 }
                             }

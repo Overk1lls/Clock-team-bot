@@ -18,7 +18,7 @@ connect(MONGODB_URI, {
 });
 
 const client = new Client();
-const blizzardService = new BlizzardService();
+const blizzardService = new BlizzardService(BLIZZARD_AUTH_TOKEN);
 
 const start = async () => {
     const discordClient = new DiscordService(
@@ -27,7 +27,7 @@ const start = async () => {
         blizzardService
     );
 
-    await blizzardService.setup(BLIZZARD_AUTH_TOKEN);
+    await blizzardService.start();
     await discordClient.start();
 };
 

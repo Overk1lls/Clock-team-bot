@@ -6,6 +6,6 @@ export interface ICharacter {
         value: string,
         valueMax: string,
         valueName: string,
-        tier: Number
+        tier: number
     }];
 }

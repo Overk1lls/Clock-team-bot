@@ -34,30 +34,30 @@ export class DiscordService {
     };
 
     private messageHandler = () => {
-        this._discordClient.on('message', async msg => {
-            if (msg.author.bot) {
+        this._discordClient.on('message', async message => {
+            if (message.author.bot) {
                 return;
             }
 
-            const channel = msg.channel;
+            const channel = message.channel;
 
             if (channel.type === 'text') {
                 if (
                     discordBotTagChannels.includes(channel.id) &&
-                    msg.mentions.has(this._discordClient.user.id)
+                    message.mentions.has(this._discordClient.user.id)
                 ) {
                     this.reply(
-                        `<@${msg.author.id}> Не тагай меня, пес`,
+                        `<@${message.author.id}> Не тагай меня, пес`,
                         channel
                     );
                 }
-            } else if (msg.channel.type === 'dm') {
-                const { content: message, author } = msg;
+            } else if (message.channel.type === 'dm') {
+                const { content, author } = message;
 
-                consoleLog(`Received a DM from ${author.username}: ${message}`);
+                consoleLog(`Received a DM from ${author.username}: ${content}`);
                 try {
-                    if (message.startsWith('!')) {
-                        const msgChunks = message.split(' ');
+                    if (content.startsWith('!')) {
+                        const msgChunks = content.split(' ');
                         const command = msgChunks[0];
 
                         if (isStringIncluded(BotCommands, command)) {
@@ -72,7 +72,7 @@ export class DiscordService {
                                     const region = getRegionFromText(msgChunks);
 
                                     const characterRIO = await this._blizzardService
-                                        .fetchRIO(
+                                        .getRIO(
                                             nickname,
                                             realm,
                                             region
@@ -91,7 +91,7 @@ export class DiscordService {
                                             (key: any) => key.mythic_level >= 20
                                         );
 
-                                    let response: string[] = [];
+                                    const response: string[] = [];
                                     keys.map((key: any) => {
                                         const keyName: string = key.short_name;
                                         const keyLevel: string = key.mythic_level;
@@ -145,10 +145,12 @@ export class DiscordService {
                                         .filter(chunk => chunk.match(subscribeWord))[0];
 
                                     const realmData = await this._blizzardService
-                                        .fetchRealmData(region, realmName);
+                                        .getRealm(region, realmName);
+
+                                    const realmLink: string = realmData.connected_realm.href;
 
                                     const realm = await this._blizzardService
-                                        .fetchRealm(region, realmData.id);
+                                        .getConnectedRealm({ link: realmLink });
 
                                     if (realmData?.code >= 400 || realm?.code >= 400) {
                                         console.error(realm.detail);
@@ -171,12 +173,8 @@ export class DiscordService {
 
                                         if (!this._subscribeTask?.hasRef()) {
                                             this._subscribeTask = setInterval(async () => {
-                                                const server = await this
-                                                    ._blizzardService
-                                                    .fetchRealm(
-                                                        region,
-                                                        realmData.id
-                                                    );
+                                                const server = await this._blizzardService
+                                                    .getConnectedRealm({ link: realmLink });
 
                                                 if (server.status.type === 'UP') {
                                                     clearInterval(this._subscribeTask);
@@ -205,7 +203,7 @@ export class DiscordService {
                                     const region = getRegionFromText(msgChunks);
 
                                     const token = await this._blizzardService
-                                        .fetchGameToken(region);
+                                        .getGameToken(region);
 
                                     if (token?.code >= 400) {
                                         console.error(token.detail);
@@ -231,6 +229,41 @@ export class DiscordService {
                                         BotResponses.COMMANDS_LIST,
                                         author
                                     );
+                                    break;
+                                }
+
+                                case BotCommands.AUCTION: {
+                                    const region = getRegionFromText(msgChunks);
+                                    let realmName = msgChunks
+                                        .filter(
+                                            chunk =>
+                                                chunk !== region &&
+                                                chunk !== command
+                                        )[0];
+                                    realmName = realmName ?
+                                        realmName :
+                                        region === 'eu' ?
+                                            'kazzak' :
+                                            'illidan';
+
+                                    const realmData = await this._blizzardService
+                                        .getRealm(region, realmName);
+
+                                    const realmLink: string = realmData.connected_realm.href;
+
+                                    const realm = await this._blizzardService
+                                        .getConnectedRealm({ link: realmLink });
+
+                                    const auctionLink: string = realm.auctions.href;
+                                    const items = [];
+
+                                    this._blizzardService
+                                        .getConnectedRealm({ link: auctionLink })
+                                        .then((res) => {
+                                            const auctions: any[] = res.auctions;
+                                            items.push(auctions.filter(item => item.item.id === 190626 || item.item.id === 190627));
+                                        });
+
                                     break;
                                 }
 
@@ -284,14 +317,12 @@ export class DiscordService {
                 .get(where.id);
 
             (<TextChannel | DMChannel>channel).send(message);
+        } else if (where instanceof Set) {
+            where.forEach(user => {
+                this.getUser(user).send(message);
+            });
         } else {
-            if (where instanceof Set) {
-                where.forEach(user => {
-                    this.getUser(user).send(message);
-                });
-            } else {
-                this.getUser(where).send(message);
-            }
+            this.getUser(where).send(message);
         }
         consoleLog(`ANSWERED: ${message}`);
     };
@@ -302,4 +333,4 @@ export class DiscordService {
             .cache
             .get(user.id);
     };
-};
+}

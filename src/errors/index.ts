@@ -13,7 +13,7 @@ export class DiscordBotError extends Error implements IBotError {
         message ?
             super(message) :
             super(code);
-            
+
         this.code = code;
     }
 }

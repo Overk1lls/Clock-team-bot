@@ -1,19 +1,17 @@
-import { consoleLog } from "../lib/utils";
-
 export default class TaskService {
     private _task: NodeJS.Timer;
 
-    constructor() { }
-
-    createTask = (timer: number, callback: Function, ...callbackArgs: any[]) => {
+    createTask = (
+        timer: number,
+        callback: (...args: unknown[]) => unknown,
+        ...callbackArgs: unknown[]
+    ) => {
         this._task = setInterval(() => {
-            consoleLog('works')
-            callback(callbackArgs);
+            callback(...callbackArgs);
         }, timer);
-        console.log(this._task.hasRef());
     };
 
     isBusy = () => {
         return this._task.hasRef();
     };
-};
+}

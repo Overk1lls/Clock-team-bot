@@ -1,23 +1,3 @@
-import fetch, { Response } from 'node-fetch';
-
-export const fetchAPI = (
-    url: string,
-    method = 'GET',
-    bearer = '',
-    body?: any,
-    authorization = 'Bearer ' + bearer,
-    contentType = 'application/json',
-) => {
-    return fetch(url, {
-        method,
-        headers: {
-            Authorization: authorization,
-            'Content-Type': contentType
-        },
-        body
-    }).then((res: Response) => res.json());
-};
-
 export const consoleLog = (text: string) => {
     const curDate = new Date();
     const curHours = curDate.getHours();
@@ -33,14 +13,17 @@ export const getRegionFromText = (text: string[]) => {
 
 export const createTask = (
     timer: number,
-    callback: Function,
-    ...callbackArgs: any[]
+    callback: (...args: any[]) => unknown,
+    ...callbackArgs: unknown[]
 ) => {
     return setInterval(() => {
-        callback.apply(null, callbackArgs);
+        callback(...callbackArgs);
     }, timer);
 };
 
-export const isStringIncluded = (values: Object | Enumerator<string>, string: string) => {
+export const isStringIncluded = (
+    values: Record<string, unknown> | Enumerator<string>,
+    string: string
+) => {
     return Object.values(values).includes(string);
 }; 

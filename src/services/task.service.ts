@@ -11,7 +11,5 @@ export default class TaskService {
         }, timer);
     };
 
-    isBusy = () => {
-        return this._task.hasRef();
-    };
+    isBusy = () => this._task.hasRef();
 }

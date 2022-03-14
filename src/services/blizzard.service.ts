@@ -1,7 +1,6 @@
 import { HeadersInit } from 'node-fetch';
 
 export class BlizzardService {
-    private _blizzardToken: string;
     private _blizzardAuthToken: string;
     private _headers: HeadersInit;
 
@@ -23,7 +22,6 @@ export class BlizzardService {
             method,
             body
         }).then((token: Record<string, string>) => {
-            this._blizzardToken = token.access_token;
             this._headers = {
                 'Authorization': `Bearer ${token.access_token}`,
                 'Content-Type': 'application/json'
@@ -86,13 +84,12 @@ export class BlizzardService {
         method?: string,
         headers?: HeadersInit,
         body?: BodyInit
-    }): Promise<any> => {
-        return fetch(
-            url,
-            {
-                method,
-                headers,
-                body
-            }).then((res: Response) => res.json());
-    };
+    }) => fetch(
+        url,
+        {
+            method,
+            headers,
+            body
+        }
+    ).then((res: Response) => res.json());
 }

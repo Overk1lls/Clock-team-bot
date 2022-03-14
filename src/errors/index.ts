@@ -1,4 +1,4 @@
-import { IBotError } from "../interfaces/error.interface";
+import { IBotError } from '../interfaces/error.interface';
 
 export enum ErrorCode {
     FETCH_ERROR = 'FETCH_ERROR',

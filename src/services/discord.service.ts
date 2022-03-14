@@ -1,10 +1,10 @@
-import { BlizzardService } from "./blizzard.service";
-import { UserRepository } from "../repositories/user.repository";
-import { Channel, Client, DMChannel, TextChannel, User } from "discord.js";
+import { BlizzardService } from './blizzard.service';
+import { UserRepository } from '../repositories/user.repository';
+import { Channel, Client, DMChannel, TextChannel, User } from 'discord.js';
 import { BotCommands, discordBotTagChannels, BotResponses } from '../lib/config';
-import { consoleLog, getRegionFromText, isStringIncluded } from "../lib/utils";
-import { subscribeWord } from "../lib/regexps";
-import { DiscordBotError, ErrorCode } from "../errors";
+import { consoleLog, getRegionFromText, isStringIncluded } from '../lib/utils';
+import { subscribeWord } from '../lib/regexps';
+import { DiscordBotError, ErrorCode } from '../errors';
 
 export class DiscordService {
     private _discordClient: Client;
@@ -14,11 +14,10 @@ export class DiscordService {
     private _subscribeTask: NodeJS.Timer;
 
     constructor(
-        discordClient: Client,
         token: string,
         blizzardService: BlizzardService
     ) {
-        this._discordClient = discordClient;
+        this._discordClient = new Client();
         this._token = token;
         this._blizzardService = blizzardService;
         this._subscribers = new UserRepository();
@@ -99,7 +98,8 @@ export class DiscordService {
                                         const keyUrl: string = key.url;
                                         const keyDate = new Date(key.completed_at).toUTCString();
                                         response.push(
-                                            `${keyName}: ${keyLevel} (+${keyUpgrades}) - ${keyDate}, url: <${keyUrl}>`
+                                            `${keyName}: ${keyLevel} (+${keyUpgrades})` +
+                                            `- ${keyDate}, url: <${keyUrl}>`
                                         );
                                     });
 
@@ -119,8 +119,8 @@ export class DiscordService {
                                     const curHours = curDate.getHours();
 
                                     if (
-                                        (region === 'us' && curDay != 2 && curHours < 17) ||
-                                        (region === 'eu' && curDay != 3 && curHours < 4)
+                                        (region === 'us' && curDay !== 2 && curHours < 17) ||
+                                        (region === 'eu' && curDay !== 3 && curHours < 4)
                                     ) {
                                         this.reply(
                                             BotResponses.REALMS_UP,
@@ -233,38 +233,44 @@ export class DiscordService {
                                 }
 
                                 case BotCommands.AUCTION: {
-                                    const region = getRegionFromText(msgChunks);
-                                    let realmName = msgChunks
-                                        .filter(
-                                            chunk =>
-                                                chunk !== region &&
-                                                chunk !== command
-                                        )[0];
-                                    realmName = realmName ?
-                                        realmName :
-                                        region === 'eu' ?
-                                            'kazzak' :
-                                            'illidan';
-
-                                    const realmData = await this._blizzardService
-                                        .getRealm(region, realmName);
-
-                                    const realmLink: string = realmData.connected_realm.href;
-
-                                    const realm = await this._blizzardService
-                                        .getConnectedRealm({ link: realmLink });
-
-                                    const auctionLink: string = realm.auctions.href;
-                                    const items = [];
-
-                                    this._blizzardService
-                                        .getConnectedRealm({ link: auctionLink })
-                                        .then((res) => {
-                                            const auctions: any[] = res.auctions;
-                                            items.push(auctions.filter(item => item.item.id === 190626 || item.item.id === 190627));
-                                        });
-
+                                    this.reply(
+                                        'This feature is being developed',
+                                        author
+                                    );
                                     break;
+                                    // const region = getRegionFromText(msgChunks);
+                                    // let realmName = msgChunks
+                                    //     .filter(
+                                    //         chunk =>
+                                    //             chunk !== region &&
+                                    //             chunk !== command
+                                    //     )[0];
+                                    // realmName = realmName ?
+                                    //     realmName :
+                                    //     region === 'eu' ?
+                                    //         'kazzak' :
+                                    //         'illidan';
+
+                                    // const realmData = await this._blizzardService
+                                    //     .getRealm(region, realmName);
+
+                                    // const realmLink: string = realmData.connected_realm.href;
+
+                                    // const realm = await this._blizzardService
+                                    //     .getConnectedRealm({ link: realmLink });
+
+                                    // const auctionLink: string = realm.auctions.href;
+                                    // const items = [];
+
+                                    // this._blizzardService
+                                    //     .getConnectedRealm({ link: auctionLink })
+                                    //     .then((res: any) => {
+                                    //         const auctions: any[] = res.auctions;
+                                    //         items.push(auctions.filter(item =>
+                                    //             item.item.id === 190626 ||
+                                    //             item.item.id === 190627
+                                    //         ));
+                                    //     });
                                 }
 
                                 default: {
@@ -287,7 +293,8 @@ export class DiscordService {
                                     (err.message ?
                                         err.message :
                                         BotResponses.BAD_DATA),
-                                    author);
+                                    author
+                                );
                                 break;
                             }
 
@@ -327,10 +334,9 @@ export class DiscordService {
         consoleLog(`ANSWERED: ${message}`);
     };
 
-    private getUser = (user: User) => {
-        return this._discordClient
+    private getUser = (user: User) =>
+        this._discordClient
             .users
             .cache
             .get(user.id);
-    };
 }

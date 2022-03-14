@@ -26,19 +26,19 @@ describe('Util Functions Test', () => {
         );
 
         const num = 0;
-        const interval_2 = createTask(
+        const interval2 = createTask(
             1000,
             (inc: number) => {
                 inc++;
                 if (inc === 1) {
-                    clearInterval(interval_2);
+                    clearInterval(interval2);
                 }
             },
             num
         );
 
         expect(interval?.hasRef()).toBeTruthy();
-        expect(interval_2?.hasRef()).toBeTruthy();
+        expect(interval2?.hasRef()).toBeTruthy();
     });
 
     it('Is String Included Test', () => {

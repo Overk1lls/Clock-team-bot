@@ -15,15 +15,11 @@ export const createTask = (
     timer: number,
     callback: (...args: any[]) => unknown,
     ...callbackArgs: unknown[]
-) => {
-    return setInterval(() => {
-        callback(...callbackArgs);
-    }, timer);
-};
+) => setInterval(() => {
+    callback(...callbackArgs);
+}, timer);
 
 export const isStringIncluded = (
     values: Record<string, unknown> | Enumerator<string>,
     string: string
-) => {
-    return Object.values(values).includes(string);
-}; 
+) => Object.values(values).includes(string);

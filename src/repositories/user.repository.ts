@@ -1,4 +1,4 @@
-import { User } from "discord.js";
+import { User } from 'discord.js';
 
 export class UserRepository {
     private _listeners: Set<User>;

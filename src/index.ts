@@ -1,8 +1,7 @@
-import { DiscordService } from './services/discord.service';
 import { config as dotenvInit } from 'dotenv';
-import { Client } from 'discord.js';
-import { connect } from 'mongoose';
+import { DiscordService } from './services/discord.service';
 import { BlizzardService } from './services/blizzard.service';
+import { MongoDBService } from './services/mongodb.service';
 
 dotenvInit();
 
@@ -12,21 +11,15 @@ const {
     MONGODB_URI,
 } = process.env;
 
-connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
-
-const client = new Client();
+const mongodbService = new MongoDBService(MONGODB_URI);
 const blizzardService = new BlizzardService(BLIZZARD_AUTH_TOKEN);
+const discordClient = new DiscordService(
+    DISCORD_BOT_TOKEN,
+    blizzardService
+);
 
 const start = async () => {
-    const discordClient = new DiscordService(
-        client,
-        DISCORD_BOT_TOKEN,
-        blizzardService
-    );
-
+    await mongodbService.connect();
     await blizzardService.start();
     await discordClient.start();
 };

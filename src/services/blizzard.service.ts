@@ -1,4 +1,3 @@
-import { HeadersInit } from 'node-fetch';
 
 export class BlizzardService {
     private _blizzardAuthToken: string;
@@ -49,6 +48,18 @@ export class BlizzardService {
         return this.fetchAPI({ url });
     };
 
+    getRealms = (region: string) => {
+        const url = `https://${region}.api.blizzard.com` +
+            `/data/wow/realm/index?namespace=dynamic-${region}`;
+        return this.fetchAPI({ url });
+    };
+
+    getAuction = ({ region = 'us', id }: { region?: string, id: number }) => {
+        const url = `https://${region}.api.blizzard.com` +
+            `/data/wow/connected-realm/${id}/auctions?namespace=dynamic-${region}`;
+        return this.fetchAPI({ url });
+    };
+
     getConnectedRealm = ({
         link,
         region,
@@ -91,5 +102,5 @@ export class BlizzardService {
             headers,
             body
         }
-    ).then((res: Response) => res.json());
+    ).then(res => res.json());
 }

@@ -1,10 +1,17 @@
 import { BlizzardService } from './blizzard.service';
 import { UserRepository } from '../repositories/user.repository';
 import { Channel, Client, DMChannel, TextChannel, User } from 'discord.js';
-import { BotCommands, discordBotTagChannels, BotResponses } from '../lib/config';
-import { consoleLog, getRegionFromText, isStringIncluded } from '../lib/utils';
-import { subscribeWord } from '../lib/regexps';
-import { DiscordBotError, ErrorCode } from '../errors';
+import { BotCommand, discordBotTagChannels, BotResponse } from '../lib/config';
+import { logWithDate, getRegionFromText, isStringIncluded, priceToGold } from '../lib/utils';
+import { subRegExp } from '../lib/regexps';
+import { DiscordBotError, ErrorCode } from './error.service';
+import {
+    Token,
+    RealmData,
+    ConnectedRealm,
+    IRealms,
+    IAuction
+} from '../interfaces/interfaces';
 
 export class DiscordService {
     private _discordClient: Client;
@@ -27,257 +34,225 @@ export class DiscordService {
     start = async () => {
         await this._discordClient
             .login(this._token)
-            .then(() => {
-                consoleLog(`${this._discordClient.user.username} is ready`);
-            });
+            .then(() => logWithDate(`${this._discordClient.user.username} is ready`));
     };
 
     private messageHandler = () => {
         this._discordClient.on('message', async message => {
-            if (message.author.bot) {
-                return;
-            }
+            if (message.author.bot) return;
 
-            const channel = message.channel;
+            const { channel } = message;
 
             if (channel.type === 'text') {
-                if (
-                    discordBotTagChannels.includes(channel.id) &&
-                    message.mentions.has(this._discordClient.user.id)
-                ) {
-                    this.reply(
-                        `<@${message.author.id}> Не тагай меня, пес`,
-                        channel
-                    );
-                }
+                if (discordBotTagChannels.includes(channel.id) &&
+                    message.mentions.has(this._discordClient.user.id))
+                    this.reply(`<@${message.author.id}> Не тагай меня, пес`, channel);
             } else if (message.channel.type === 'dm') {
                 const { content, author } = message;
 
-                consoleLog(`Received a DM from ${author.username}: ${content}`);
+                logWithDate(`Received a DM from ${author.username}: ${content}`);
+
                 try {
                     if (content.startsWith('!')) {
-                        const msgChunks = content.split(' ');
-                        const command = msgChunks[0];
+                        const words = content.split(' ');
+                        const command = words[0];
 
-                        if (isStringIncluded(BotCommands, command)) {
+                        if (isStringIncluded(BotCommand, command)) {
                             switch (command) {
-                                case BotCommands.CHECK: {
-                                    const character = msgChunks
+                                case BotCommand.CHECK: {
+                                    const character = words
                                         .filter(chunk => chunk.includes('-'))[0];
-                                    const allKeysFlag = msgChunks
+                                    const areAllKeys = words
                                         .filter(chunk => chunk.match(/all/i))[0];
                                     const nickname = character.split('-')[0].toUpperCase();
                                     const realm = character.split('-')[1].toUpperCase();
-                                    const region = getRegionFromText(msgChunks);
+                                    const region = getRegionFromText(words);
 
-                                    const characterRIO = await this._blizzardService
-                                        .getRIO(
-                                            nickname,
-                                            realm,
-                                            region
-                                        );
+                                    const characterRIO: Record<
+                                        string, any // eslint-disable-line
+                                    > = await this._blizzardService
+                                        .getRIO(nickname, realm, region);
 
-                                    if (characterRIO.error) {
+                                    if (characterRIO.statusCode >= 400) {
                                         throw new DiscordBotError(
                                             ErrorCode.FETCH_ERROR,
-                                            characterRIO.error
+                                            characterRIO.message
                                         );
                                     }
-
-                                    const keys = allKeysFlag ?
-                                        characterRIO.mythic_plus_recent_runs :
-                                        characterRIO.mythic_plus_recent_runs.filter(
-                                            (key: any) => key.mythic_level >= 20
-                                        );
-
+                                    let recentKeys: unknown[] = characterRIO
+                                        .mythic_plus_recent_runs;
                                     const response: string[] = [];
-                                    keys.map((key: any) => {
-                                        const keyName: string = key.short_name;
-                                        const keyLevel: string = key.mythic_level;
-                                        const keyUpgrades: string = key.num_keystone_upgrades;
-                                        const keyUrl: string = key.url;
-                                        const keyDate = new Date(key.completed_at).toUTCString();
+
+                                    if (!areAllKeys) {
+                                        recentKeys = recentKeys
+                                            .filter((key: Record<string, unknown>) =>
+                                                key.mythicLevel >= 20
+                                            );
+                                    }
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    recentKeys.map((key: Record<string, any>) => {
+                                        const {
+                                            short_name: shortName,
+                                            mythic_level: mythicLevel,
+                                            num_keystone_upgrades: upgrades,
+                                            url,
+                                            completed_at: completeDate
+                                        } = key;
+
+                                        let strUpgrades = '';
+                                        for (let i = 0; i < upgrades; i++) strUpgrades += '+';
+
+                                        const date = new Date(completeDate).toUTCString();
+
                                         response.push(
-                                            `${keyName}: ${keyLevel} (+${keyUpgrades})` +
-                                            `- ${keyDate}, url: <${keyUrl}>`
+                                            `${shortName} +${mythicLevel}` +
+                                            `${strUpgrades} - ${date}, url: <${url}>`
                                         );
                                     });
-
                                     this.reply(
                                         response.length > 0 ?
                                             JSON.stringify(response, null, 2) :
-                                            BotResponses.NO_KEYS,
+                                            BotResponse.NO_KEYS,
                                         author
                                     );
                                     break;
                                 }
 
-                                case BotCommands.REALMS: {
-                                    const region = getRegionFromText(msgChunks);
+                                case BotCommand.REALMS: {
+                                    const region = getRegionFromText(words);
                                     const curDate = new Date();
                                     const curDay = curDate.getDay();
                                     const curHours = curDate.getHours();
 
-                                    if (
-                                        (region === 'us' && curDay !== 2 && curHours < 17) ||
+                                    if ((region === 'us' && curDay !== 2 && curHours < 17) ||
                                         (region === 'eu' && curDay !== 3 && curHours < 4)
                                     ) {
-                                        this.reply(
-                                            BotResponses.REALMS_UP,
+                                        return this.reply(
+                                            BotResponse.REALMS_UP,
                                             author
                                         );
-                                        return;
                                     }
-                                    let realmName = msgChunks
-                                        .filter(
-                                            chunk =>
-                                                chunk !== region &&
-                                                chunk !== command &&
-                                                !chunk.match(subscribeWord)
+                                    let realmName = words
+                                        .filter(chunk =>
+                                            chunk !== region &&
+                                            chunk !== command &&
+                                            !chunk.match(subRegExp)
                                         )[0];
                                     realmName = realmName ?
                                         realmName :
-                                        region === 'eu' ?
-                                            'kazzak' :
-                                            'illidan';
+                                        region === 'eu' ? 'kazzak' : 'illidan';
 
-                                    const subscribe = msgChunks
-                                        .filter(chunk => chunk.match(subscribeWord))[0];
+                                    const isSubscribed = words
+                                        .filter(chunk => chunk.match(subRegExp))[0];
 
-                                    const realmData = await this._blizzardService
+                                    const realmData: RealmData = await this._blizzardService
                                         .getRealm(region, realmName);
 
-                                    const realmLink: string = realmData.connected_realm.href;
+                                    const realmLink = realmData.connected_realm.href;
 
-                                    const realm = await this._blizzardService
+                                    let realm: ConnectedRealm = await this._blizzardService
                                         .getConnectedRealm({ link: realmLink });
 
                                     if (realmData?.code >= 400 || realm?.code >= 400) {
-                                        console.error(realm.detail);
                                         throw new DiscordBotError(
                                             ErrorCode.FETCH_ERROR,
-                                            BotResponses.BAD_DATA
+                                            BotResponse.BAD_DATA
                                         );
                                     }
-                                    const status = realm.status.type;
+                                    let status = realm.status.type;
 
-                                    if (subscribe && status === 'DOWN') {
+                                    if (isSubscribed && status === 'DOWN') {
                                         this._subscribers.add(author);
 
                                         this.reply(
                                             (this._subscribers.has(author) ?
-                                                BotResponses.ALREADY_SUBBED :
-                                                BotResponses.SUBBED),
+                                                BotResponse.ALREADY_SUBBED :
+                                                BotResponse.SUBBED),
                                             author
                                         );
 
                                         if (!this._subscribeTask?.hasRef()) {
                                             this._subscribeTask = setInterval(async () => {
-                                                const server = await this._blizzardService
+                                                realm = await this._blizzardService
                                                     .getConnectedRealm({ link: realmLink });
+                                                status = realm.status.type;
 
-                                                if (server.status.type === 'UP') {
+                                                if (status === 'UP') {
                                                     clearInterval(this._subscribeTask);
 
                                                     if (this._subscribers.users.size !== 0) {
                                                         this.reply(
-                                                            BotResponses.REALMS_UP,
+                                                            BotResponse.REALMS_UP,
                                                             this._subscribers.users
                                                         );
                                                     }
                                                 } else {
-                                                    consoleLog(BotResponses.REALMS_DOWN);
+                                                    logWithDate(BotResponse.REALMS_DOWN);
                                                 }
                                             }, 60000);
                                         }
-                                    } else {
-                                        this.reply(
-                                            BotResponses.REALMS_UP,
-                                            author
-                                        );
-                                    }
+                                    } else this.reply(BotResponse.REALMS_UP, author);
                                     break;
                                 }
 
-                                case BotCommands.TOKEN: {
-                                    const region = getRegionFromText(msgChunks);
+                                case BotCommand.TOKEN: {
+                                    const region = getRegionFromText(words);
 
-                                    const token = await this._blizzardService
+                                    const token: Token = await this._blizzardService
                                         .getGameToken(region);
 
                                     if (token?.code >= 400) {
-                                        console.error(token.detail);
                                         throw new DiscordBotError(
                                             ErrorCode.FETCH_ERROR,
-                                            BotResponses.SOMETHING_WRONG
+                                            BotResponse.SOMETHING_WRONG
                                         );
                                     }
 
-                                    const price: number = token.price;
-                                    const priceToStr: string = price
-                                        .toString()
-                                        .substring(0, 6);
-                                    this.reply(
-                                        `Token price is: ${priceToStr} gold`,
-                                        author
-                                    );
+                                    const { price } = token;
+                                    const priceInGold = priceToGold(price);
+
+                                    this.reply(`Token price is: ${priceInGold} gold`, author);
                                     break;
                                 }
 
-                                case BotCommands.COMMANDS: {
-                                    this.reply(
-                                        BotResponses.COMMANDS_LIST,
-                                        author
-                                    );
+                                case BotCommand.COMMANDS: {
+                                    this.reply(BotResponse.COMMANDS_LIST, author);
                                     break;
                                 }
 
-                                case BotCommands.AUCTION: {
-                                    this.reply(
-                                        'This feature is being developed',
-                                        author
+                                case BotCommand.AUCTION: {
+                                    throw new DiscordBotError(
+                                        ErrorCode.SERVER,
+                                        'Not implemented yet'
                                     );
-                                    break;
-                                    // const region = getRegionFromText(msgChunks);
-                                    // let realmName = msgChunks
-                                    //     .filter(
-                                    //         chunk =>
-                                    //             chunk !== region &&
-                                    //             chunk !== command
-                                    //     )[0];
-                                    // realmName = realmName ?
-                                    //     realmName :
-                                    //     region === 'eu' ?
-                                    //         'kazzak' :
-                                    //         'illidan';
 
-                                    // const realmData = await this._blizzardService
-                                    //     .getRealm(region, realmName);
+                                    const region = getRegionFromText(words);
 
-                                    // const realmLink: string = realmData.connected_realm.href;
+                                    let realmName = words
+                                        .filter(chunk =>
+                                            chunk !== region &&
+                                            chunk !== command
+                                        )[0];
 
-                                    // const realm = await this._blizzardService
-                                    //     .getConnectedRealm({ link: realmLink });
+                                    realmName = realmName ?
+                                        realmName :
+                                        region === 'eu' ? 'kazzak' : 'illidan';
 
-                                    // const auctionLink: string = realm.auctions.href;
-                                    // const items = [];
+                                    const getRealm: IRealms = await this._blizzardService
+                                        .getRealms(region);
 
-                                    // this._blizzardService
-                                    //     .getConnectedRealm({ link: auctionLink })
-                                    //     .then((res: any) => {
-                                    //         const auctions: any[] = res.auctions;
-                                    //         items.push(auctions.filter(item =>
-                                    //             item.item.id === 190626 ||
-                                    //             item.item.id === 190627
-                                    //         ));
-                                    //     });
+                                    const { realms } = getRealm;
+                                    const realmId = realms.filter(realm =>
+                                        realm.name === realmName ||
+                                        realm.slug === realmName
+                                    )[0].id;
+
+                                    const auction: IAuction = await this._blizzardService
+                                        .getAuction({ id: realmId });
                                 }
 
                                 default: {
-                                    this.reply(
-                                        BotResponses.COMMAND_NOT_RECOGNIZED,
-                                        author
-                                    );
+                                    this.reply(BotResponse.COMMAND_NOT_RECOGNIZED, author);
                                     break;
                                 }
                             }
@@ -292,7 +267,7 @@ export class DiscordService {
                                 this.reply(
                                     (err.message ?
                                         err.message :
-                                        BotResponses.BAD_DATA),
+                                        BotResponse.BAD_DATA),
                                     author
                                 );
                                 break;
@@ -304,39 +279,26 @@ export class DiscordService {
                             }
 
                             default: {
-                                this.reply(BotResponses.SOMETHING_WRONG, author);
+                                this.reply(BotResponse.SOMETHING_WRONG, author);
                                 break;
                             }
                         }
-                    } else {
-                        this.reply(BotResponses.SOMETHING_WRONG, author);
-                    }
+                    } else this.reply(BotResponse.SOMETHING_WRONG, author);
                 }
             }
         });
     };
 
-    private reply = (message: string, where: TextChannel | DMChannel | User | Set<User>) => {
+    private reply = async (message: string, where: TextChannel | DMChannel | User | Set<User>) => {
         if (where instanceof Channel) {
-            const channel = this._discordClient
-                .channels
-                .cache
-                .get(where.id);
+            const channel = this._discordClient.channels.cache.get(where.id);
+            await (<TextChannel | DMChannel>channel).send(message);
+        } else if (where instanceof Set)
+            where.forEach(async user => await this.getUser(user).send(message));
+        else this.getUser(where).send(message);
 
-            (<TextChannel | DMChannel>channel).send(message);
-        } else if (where instanceof Set) {
-            where.forEach(user => {
-                this.getUser(user).send(message);
-            });
-        } else {
-            this.getUser(where).send(message);
-        }
-        consoleLog(`ANSWERED: ${message}`);
+        logWithDate(`ANSWERED: ${message}`);
     };
 
-    private getUser = (user: User) =>
-        this._discordClient
-            .users
-            .cache
-            .get(user.id);
+    private getUser = (user: User) => this._discordClient.users.cache.get(user.id);
 }

@@ -1,1 +1,1 @@
-export const subscribeWord = /subscribe/i;
+export const subRegExp = /subscribe/i;

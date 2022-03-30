@@ -1,9 +1,11 @@
-import { IBotError } from '../interfaces/error.interface';
-
 export enum ErrorCode {
     FETCH_ERROR = 'FETCH_ERROR',
-    SERVER = 'SERVER',
+    SERVER = 'SOMETHING_WENT_WRONG',
     NOT_FOUND = 'NOT_FOUND'
+}
+
+export interface IBotError {
+    code: ErrorCode
 }
 
 export class DiscordBotError extends Error implements IBotError {

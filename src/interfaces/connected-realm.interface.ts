@@ -1,10 +1,11 @@
 export interface IConnectedRealm {
     status: {
-        type: string
+        type: 'DOWN' | 'UP',
     },
     auctions: {
         href: string,
     },
+    code?: number,
 }
 
 export type ConnectedRealm = IConnectedRealm & Record<string, unknown>;

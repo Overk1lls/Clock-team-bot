@@ -1,19 +1,21 @@
 {
   "name": "clock-team-bot",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "The Discord bot that serves as a provider of information related to World of Warcraft",
   "main": "dist/index.js",
   "scripts": {
     "test": "jest",
     "start": "node dist/index.js",
     "start:b": "npm run build && npm run start",
-    "start:dev": "ts-node-dev --inspect=9229 -- src/index.ts",
+    "start:dev": "ts-node-dev -- src/index.ts",
     "build": "rimraf dist && tsc",
-    "postinstall": "tsc"
+    "postinstall": "tsc",
+    "lint": "npx eslint src --fix"
   },
   "author": "Overkill",
   "license": "ISC",
   "dependencies": {
+    "axios": "^0.26.1",
     "discord.js": "^12.5.3",
     "dotenv": "^8.6.0",
     "mongoose": "^5.13.9",

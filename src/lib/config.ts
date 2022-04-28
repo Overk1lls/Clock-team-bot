@@ -1,4 +1,4 @@
-export const discordBotTagChannels = [
+export const allowedBotTagChannels = [
     '896363996029005854',
     '672667309906853899'
 ];
@@ -13,7 +13,7 @@ export enum BotCommand {
 }
 
 export enum BotResponse {
-    COMMAND_NOT_RECOGNIZED = 'I don\'t recognize this command!',
+    NO_COMMAND = 'I don\'t recognize this command!',
     REALMS_UP = 'Realms are up and already working!',
     REALMS_DOWN = 'Realms status is down',
     NO_KEYS = 'No recent keys done :(',

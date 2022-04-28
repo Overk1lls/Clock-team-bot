@@ -6,11 +6,6 @@ export const logWithDate = (text: string) => {
     console.log(`${curHours}:${curMinutes}:${curSeconds} ${text}`);
 };
 
-export const getRegionFromText = (text: string[]) => {
-    const region = text.filter(chunk => chunk.match(/eu|us/i))[0]?.toLocaleLowerCase();
-    return region ? region : 'us';
-};
-
 export const createTask = (
     timer: number,
     callback: (...args: any[]) => unknown, // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -25,3 +20,12 @@ export const isStringIncluded = (
 ) => Object.values(values).includes(string);
 
 export const priceToGold = (price: number) => price.toString().substring(0, 6);
+
+export const keyUpgradesIntoString = (upgrades: number) => {
+    let result = '';
+
+    for (let i = 0; i < upgrades; i++) {
+        result += '+';
+    }
+    return result;
+};

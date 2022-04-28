@@ -1,41 +1,55 @@
+import axios, { AxiosRequestHeaders, Method } from 'axios';
+import { DiscordBotError, ErrorCode } from './error.service';
+import { IRealmData } from '../interfaces/realm.interface';
+import { IConnectedRealm } from '../interfaces/connected-realm.interface';
+import { IAuction, IRealms, IToken } from '../interfaces';
+import { BlizzTokenDTO } from '../interfaces/dto/blizz-token.dto';
+import { logWithDate } from '../lib/utils';
+import { IRioChar } from '../interfaces/dto/rio.dto';
 
 export class BlizzardService {
-    private _blizzardAuthToken: string;
-    private _headers: HeadersInit;
+    private readonly blizzardAuthToken: string;
+    private headers: AxiosRequestHeaders;
 
     constructor(blizzAuthToken: string) {
-        this._blizzardAuthToken = blizzAuthToken;
+        this.blizzardAuthToken = blizzAuthToken;
     }
 
     start = async () => {
         const url = 'https://eu.battle.net/oauth/token';
         const method = 'POST';
-        this._headers = {
-            'Authorization': `Basic ${this._blizzardAuthToken}`,
+        this.headers = {
+            'Authorization': `Basic ${this.blizzardAuthToken}`,
             'Content-Type': 'application/x-www-form-urlencoded'
         };
-        const body = 'grant_type=client_credentials';
+        const data = 'grant_type=client_credentials';
 
-        await this.fetchAPI({
+        this.fetchAPI({
             url,
             method,
-            body
-        }).then((token: Record<string, string>) => {
-            this._headers = {
+            data
+        }).then((token: BlizzTokenDTO) => {
+            this.headers = {
                 'Authorization': `Bearer ${token.access_token}`,
                 'Content-Type': 'application/json'
             };
+            logWithDate('Blizzard Service is ready');
         });
 
         setTimeout(() => this.start(), 86000 * 1000);
     };
 
-    getRIO = (
+    getRIO = ({
+        nickname,
+        realm,
+        region = 'us',
+        fields = 'mythic_plus_recent_runs'
+    }: {
         nickname: string,
         realm: string,
-        region: string,
-        fields = 'mythic_plus_recent_runs'
-    ) => {
+        region?: 'us' | 'eu',
+        fields?: string
+    }): Promise<IRioChar> => {
         const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${realm}&name=${nickname}&fields=${fields}`;
         return this.fetchAPI({ url });
     };
@@ -43,18 +57,24 @@ export class BlizzardService {
     getRealm = (
         region: string,
         realm: string
-    ) => {
+    ): Promise<IRealmData> => {
         const url = `https://${region}.api.blizzard.com/data/wow/realm/${realm}?namespace=dynamic-${region}`;
         return this.fetchAPI({ url });
     };
 
-    getRealms = (region: string) => {
+    getRealms = (region: string): Promise<IRealms> => {
         const url = `https://${region}.api.blizzard.com` +
             `/data/wow/realm/index?namespace=dynamic-${region}`;
         return this.fetchAPI({ url });
     };
 
-    getAuction = ({ region = 'us', id }: { region?: string, id: number }) => {
+    getAuction = ({
+        region = 'us',
+        id
+    }: {
+        region?: string,
+        id: number
+    }): Promise<IAuction> => {
         const url = `https://${region}.api.blizzard.com` +
             `/data/wow/connected-realm/${id}/auctions?namespace=dynamic-${region}`;
         return this.fetchAPI({ url });
@@ -68,14 +88,14 @@ export class BlizzardService {
         link?: string,
         region?: string,
         realm?: string
-    }) => {
+    }): Promise<IConnectedRealm> => {
         const url = `https://${region}.api.blizzard.com/data/wow/connected-realm/${realm}?namespace=dynamic-${region}`;
         return link ?
             this.fetchAPI({ url: link }) :
             this.fetchAPI({ url });
     };
 
-    getGameToken = (region: string) => {
+    getGameToken = (region: string): Promise<IToken> => {
         const url = `https://${region}.api.blizzard.com/data/wow/token/index?&namespace=dynamic-${region}`;
         return this.fetchAPI({ url });
     };
@@ -88,19 +108,21 @@ export class BlizzardService {
     private fetchAPI = async ({
         url,
         method = 'GET',
-        headers = this._headers,
-        body
+        headers = this.headers,
+        data
     }: {
         url: string,
-        method?: string,
-        headers?: HeadersInit,
-        body?: BodyInit
-    }) => fetch(
-        url,
-        {
-            method,
-            headers,
-            body
+        method?: Method,
+        headers?: AxiosRequestHeaders,
+        data?: BodyInit
+    }) => axios(url, {
+        method,
+        headers,
+        data
+    }).then(res => {
+        if (res.status >= 400) {
+            throw new DiscordBotError(ErrorCode.FETCH_ERROR);
         }
-    ).then(res => res.json());
+        return res.data;
+    });
 }

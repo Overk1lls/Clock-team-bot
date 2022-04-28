@@ -11,5 +11,5 @@ export interface IRealms {
         name: string;
         id: number;
         slug: string;
-    }]
+    }],
 }

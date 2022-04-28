@@ -1,5 +1,5 @@
 import { config as dotenvInit } from 'dotenv';
-import { DiscordService } from './services/discord.service';
+import { DiscordService } from './services/discord';
 import { BlizzardService } from './services/blizzard.service';
 
 dotenvInit();
@@ -10,14 +10,16 @@ const {
 } = process.env;
 
 const blizzardService = new BlizzardService(BLIZZARD_AUTH_TOKEN);
-const discordClient = new DiscordService(
-    DISCORD_BOT_TOKEN,
-    blizzardService
-);
+
 
 const start = async () => {
-    await blizzardService.start();
-    await discordClient.start();
+    blizzardService.start();
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const discordClient = new DiscordService(
+        DISCORD_BOT_TOKEN,
+        blizzardService
+    );
 };
 
 start().catch(err => {

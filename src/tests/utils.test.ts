@@ -1,4 +1,5 @@
-import { createTask, getRegionFromText, isStringIncluded } from '../lib/utils';
+import { createTask, isStringIncluded } from '../lib/utils';
+import { getRegionFromText } from '../lib/realms';
 
 describe('Util Functions Test', () => {
     it('Get Region From Text Test', () => {

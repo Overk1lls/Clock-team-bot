@@ -1,11 +1,11 @@
 export enum ErrorCode {
     FETCH_ERROR = 'FETCH_ERROR',
     SERVER = 'SOMETHING_WENT_WRONG',
-    NOT_FOUND = 'NOT_FOUND'
+    NOT_FOUND = 'NOT_FOUND',
 }
 
 export interface IBotError {
-    code: ErrorCode
+    code: ErrorCode,
 }
 
 export class DiscordBotError extends Error implements IBotError {
